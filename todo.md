@@ -1,0 +1,112 @@
+# Stock Transfer Platform - TODO
+
+## Core Infrastructure
+- [x] Database schema for all modules
+- [x] Role-based access control (Admin, Issuer, Shareholder, Employee)
+- [x] Dashboard landing page (enterprise style with dark navy sidebar)
+
+## 1. Shareholder Register & Cap Table Management
+- [x] Real-time tracking of issued/outstanding shares
+- [x] Treasury stock management
+- [x] Ownership records and cap table visualization
+- [x] Share class management
+
+## 2. Electronic Book-Entry Recordkeeping
+- [x] Certificate issuance workflow
+- [x] Certificate cancellation workflow
+- [x] Transfer workflows
+- [x] Lost/stolen certificate replacement process
+
+## 3. DTC/DWAC & DRS Processing
+- [x] DTC integration simulation
+- [x] DWAC processing
+- [x] DRS transfers
+- [x] Broker-to-agent transfer automation
+
+## 4. Share Transfer & Trade Processing
+- [x] Transfer request submission
+- [x] Approval workflow
+- [x] Complete audit trails
+- [x] Transaction history
+
+## 5. Dividend & Distribution Processing
+- [x] Dividend scheduling
+- [x] Tax handling (withholding calculations)
+- [x] Multi-currency support
+- [x] Electronic payment delivery
+- [x] Dividend history and reporting
+
+## 6. Corporate Actions Management
+- [x] Mergers and acquisitions
+- [x] Stock splits
+- [x] Consolidations
+- [x] Rights offerings
+- [x] Tender offers
+- [x] Spin-offs
+
+## 7. Rule 144 & Restricted Stock
+- [x] Restricted stock tracking
+- [x] Rule 144 compliance checks
+- [x] Registrar functions
+- [x] Unauthorized issuance prevention
+
+## 8. Shareholder & Issuer Portals
+- [x] Shareholder portal with holdings view
+- [x] Transaction history access
+- [x] Self-service functions (address updates, statement views)
+- [x] Issuer portal for administrators
+- [x] Mobile responsive design
+- [x] Secure notifications
+
+## 9. Proxy & Meeting Management
+- [x] Proxy distribution (electronic and mail)
+- [x] Vote tabulation
+- [x] Annual meeting support
+- [x] Quorum calculations
+- [x] Virtual meeting capabilities
+- [x] Vote tracking dashboard
+
+## 10. Compliance & Reporting
+- [x] SEC/IRS tax reporting (1099-DIV/B forms)
+- [x] SEC Rule 17Ad-7 recordkeeping
+- [x] Abandoned property/escheatment services
+- [x] Compliance dashboard with deadline alerts
+- [x] Audit trail logging
+
+## 11. Equity Compensation & Grant Management
+- [x] Stock options management
+- [x] RSU tracking
+- [x] Performance awards
+- [x] Stock Appreciation Rights (SARs)
+- [x] Automated vesting schedule tracking
+- [x] Employee portal for holdings
+- [x] FASB/IRS/SEC compliance reporting
+- [x] Tax withholding calculations
+
+## 12. Analytics & Integrations
+- [x] Custom dashboards
+- [x] Real-time data access
+- [x] Shareholder holdings insights
+- [x] Trading trends analysis
+- [x] RESTful API for external integrations
+- [x] ERP/HRIS/Tax system connectors
+
+## 13. AI-Powered Compliance
+- [x] Predictive analytics for compliance risks
+- [x] Automated document review
+- [x] Natural language query interface
+- [x] Regulatory guidance assistant
+
+## Unit Tests
+- [x] Auth router tests
+- [x] Company router tests
+- [x] Cap table router tests
+- [x] Shareholder router tests
+- [x] Transaction router tests
+- [x] Certificate router tests
+- [x] Corporate actions router tests
+- [x] Dividend router tests
+- [x] Proxy router tests
+- [x] Equity plans router tests
+- [x] Compliance router tests
+- [x] Audit router tests
