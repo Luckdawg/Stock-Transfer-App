@@ -10,8 +10,9 @@ import {
   companies, shareClasses, shareholders, holdings, certificates,
   transactions, dtcRequests, corporateActions, dividends, proxyEvents,
   proxyProposals, proxyVotes, equityPlans, equityGrants, vestingEvents,
-  taxForms, complianceAlerts, notifications, integrations
+  taxForms, complianceAlerts, notifications, integrations, documents
 } from "../drizzle/schema";
+import { storagePut } from "./storage";
 import { eq, and, desc } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { generateCertificateHTML, generate1099DivHTML, generateShareholderStatementHTML, getCertificateData, get1099DivData, getShareholderStatementData } from "./pdfGenerator";
@@ -293,6 +294,47 @@ export const appRouter = router({
         
         return { success: true };
       }),
+    
+    bulkApprove: adminProcedure
+      .input(z.object({ ids: z.array(z.number()) }))
+      .mutation(async ({ input, ctx }) => {
+        const database = await getDb();
+        if (!database) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' });
+        
+        let approved = 0;
+        for (const id of input.ids) {
+          await database.update(transactions)
+            .set({ 
+              status: 'approved', 
+              approvedBy: ctx.user.id, 
+              approvedAt: new Date() 
+            })
+            .where(eq(transactions.id, id));
+          approved++;
+        }
+        
+        return { success: true, count: approved };
+      }),
+    
+    bulkReject: adminProcedure
+      .input(z.object({ ids: z.array(z.number()), reason: z.string().optional() }))
+      .mutation(async ({ input, ctx }) => {
+        const database = await getDb();
+        if (!database) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' });
+        
+        let rejected = 0;
+        for (const id of input.ids) {
+          await database.update(transactions)
+            .set({ 
+              status: 'rejected',
+              notes: input.reason ?? 'Bulk rejected'
+            })
+            .where(eq(transactions.id, id));
+          rejected++;
+        }
+        
+        return { success: true, count: rejected };
+      }),
   }),
 
   // ============================================
@@ -352,6 +394,27 @@ export const appRouter = router({
         
         return { success: true };
       }),
+    
+    bulkCancel: adminProcedure
+      .input(z.object({ ids: z.array(z.number()), reason: z.string().optional() }))
+      .mutation(async ({ input }) => {
+        const database = await getDb();
+        if (!database) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' });
+        
+        const today = new Date().toISOString().split('T')[0] as string;
+        let cancelled = 0;
+        for (const id of input.ids) {
+          await database.update(certificates)
+            .set({ 
+              status: 'cancelled',
+              cancelDate: today,
+            })
+            .where(eq(certificates.id, id));
+          cancelled++;
+        }
+        
+        return { success: true, count: cancelled };
+      }),
   }),
 
   // ============================================
@@ -397,6 +460,26 @@ export const appRouter = router({
         });
         
         return { id: result[0].insertId, requestNumber };
+      }),
+    
+    bulkUpdateStatus: adminProcedure
+      .input(z.object({ 
+        ids: z.array(z.number()), 
+        status: z.enum(['pending', 'processing', 'completed', 'rejected'])
+      }))
+      .mutation(async ({ input }) => {
+        const database = await getDb();
+        if (!database) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' });
+        
+        let updated = 0;
+        for (const id of input.ids) {
+          await database.update(dtcRequests)
+            .set({ status: input.status })
+            .where(eq(dtcRequests.id, id));
+          updated++;
+        }
+        
+        return { success: true, count: updated };
       }),
   }),
 
@@ -748,6 +831,75 @@ export const appRouter = router({
       .input(z.object({ companyId: z.number() }))
       .query(async ({ input }) => {
         return db.getDashboardStats(input.companyId);
+      }),
+  }),
+
+  // ============================================
+  // DOCUMENTS / ATTACHMENTS
+  // ============================================
+  document: router({
+    list: protectedProcedure
+      .input(z.object({ 
+        entityType: z.enum(['transaction', 'corporate_action', 'certificate', 'shareholder', 'dividend', 'proxy_event']),
+        entityId: z.number()
+      }))
+      .query(async ({ input }) => {
+        const database = await getDb();
+        if (!database) return [];
+        
+        return database.select().from(documents)
+          .where(and(
+            eq(documents.entityType, input.entityType),
+            eq(documents.entityId, input.entityId)
+          ))
+          .orderBy(desc(documents.createdAt));
+      }),
+    
+    upload: adminProcedure
+      .input(z.object({
+        companyId: z.number(),
+        entityType: z.enum(['transaction', 'corporate_action', 'certificate', 'shareholder', 'dividend', 'proxy_event']),
+        entityId: z.number(),
+        fileName: z.string(),
+        fileData: z.string(), // Base64 encoded
+        mimeType: z.string(),
+        description: z.string().optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const database = await getDb();
+        if (!database) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' });
+        
+        // Decode base64 and upload to S3
+        const buffer = Buffer.from(input.fileData, 'base64');
+        const fileKey = `documents/${input.companyId}/${input.entityType}/${input.entityId}/${nanoid(10)}-${input.fileName}`;
+        
+        const { url } = await storagePut(fileKey, buffer, input.mimeType);
+        
+        const result = await database.insert(documents).values({
+          companyId: input.companyId,
+          entityType: input.entityType,
+          entityId: input.entityId,
+          fileName: input.fileName,
+          fileKey,
+          fileUrl: url,
+          fileSize: buffer.length,
+          mimeType: input.mimeType,
+          description: input.description ?? null,
+          uploadedBy: ctx.user.id,
+        });
+        
+        return { id: result[0].insertId, url };
+      }),
+    
+    delete: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        const database = await getDb();
+        if (!database) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' });
+        
+        await database.delete(documents).where(eq(documents.id, input.id));
+        
+        return { success: true };
       }),
   }),
 

@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -35,6 +36,7 @@ import {
   CertificateViewDialog,
   DRSRequestViewDialog
 } from "@/components/dialogs";
+import { BulkActionToolbar } from "@/components/BulkActionToolbar";
 
 export default function Recordkeeping() {
   const [activeTab, setActiveTab] = useState<"certificates" | "book_entry" | "drs">("certificates");
@@ -48,6 +50,11 @@ export default function Recordkeeping() {
   const [selectedCertificate, setSelectedCertificate] = useState<any>(null);
   const [selectedDRSRequest, setSelectedDRSRequest] = useState<any>(null);
   const { selectedCompanyId, setSelectedCompanyId } = useSelectedCompany();
+  
+  // Bulk selection state
+  const [selectedCertificateIds, setSelectedCertificateIds] = useState<number[]>([]);
+  const [selectedDRSIds, setSelectedDRSIds] = useState<number[]>([]);
+  const [isBulkLoading, setIsBulkLoading] = useState(false);
 
   // Fetch real data
   const { data: shareholders, refetch: refetchShareholders } = trpc.shareholder.list.useQuery(
@@ -60,7 +67,7 @@ export default function Recordkeeping() {
     { enabled: !!selectedCompanyId }
   );
 
-  const { data: dtcRequests } = trpc.dtc.list.useQuery(
+  const { data: dtcRequests, refetch: refetchDtc } = trpc.dtc.list.useQuery(
     { companyId: selectedCompanyId! },
     { enabled: !!selectedCompanyId }
   );
@@ -77,6 +84,29 @@ export default function Recordkeeping() {
     },
     onError: (error) => {
       toast.error(`Failed to generate certificate: ${error.message}`);
+    },
+  });
+
+  // Bulk operations mutations
+  const bulkCancelCertificates = trpc.certificate.bulkCancel.useMutation({
+    onSuccess: (data) => {
+      toast.success(`${data.count} certificates cancelled`);
+      setSelectedCertificateIds([]);
+      refetchCertificates();
+    },
+    onError: (error) => {
+      toast.error(`Failed to cancel certificates: ${error.message}`);
+    },
+  });
+
+  const bulkUpdateDRSStatus = trpc.dtc.bulkUpdateStatus.useMutation({
+    onSuccess: (data) => {
+      toast.success(`${data.count} DRS requests updated`);
+      setSelectedDRSIds([]);
+      refetchDtc();
+    },
+    onError: (error) => {
+      toast.error(`Failed to update DRS requests: ${error.message}`);
     },
   });
 
@@ -111,6 +141,10 @@ export default function Recordkeeping() {
     cert.shareholderName?.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
 
+  const filteredDRSRequests = dtcRequests?.filter((req: any) =>
+    req.requestNumber?.toLowerCase().includes(searchTerm.toLowerCase())
+  ) || [];
+
   const handleNewRecord = () => {
     if (activeTab === "certificates") {
       setShowNewCertificateDialog(true);
@@ -134,6 +168,66 @@ export default function Recordkeeping() {
   const handleViewDRSRequest = (drsRequest: any) => {
     setSelectedDRSRequest(drsRequest);
     setShowDRSViewDialog(true);
+  };
+
+  // Bulk selection handlers
+  const handleCertificateSelect = (id: number, checked: boolean) => {
+    if (checked) {
+      setSelectedCertificateIds([...selectedCertificateIds, id]);
+    } else {
+      setSelectedCertificateIds(selectedCertificateIds.filter(i => i !== id));
+    }
+  };
+
+  const handleSelectAllCertificates = (checked: boolean) => {
+    if (checked) {
+      const activeIds = filteredCertificates
+        .filter((c: any) => c.status === 'active')
+        .map((c: any) => c.id);
+      setSelectedCertificateIds(activeIds);
+    } else {
+      setSelectedCertificateIds([]);
+    }
+  };
+
+  const handleDRSSelect = (id: number, checked: boolean) => {
+    if (checked) {
+      setSelectedDRSIds([...selectedDRSIds, id]);
+    } else {
+      setSelectedDRSIds(selectedDRSIds.filter(i => i !== id));
+    }
+  };
+
+  const handleSelectAllDRS = (checked: boolean) => {
+    if (checked) {
+      const pendingIds = filteredDRSRequests
+        .filter((r: any) => r.status === 'pending' || r.status === 'processing')
+        .map((r: any) => r.id);
+      setSelectedDRSIds(pendingIds);
+    } else {
+      setSelectedDRSIds([]);
+    }
+  };
+
+  const handleBulkCancelCertificates = async () => {
+    setIsBulkLoading(true);
+    try {
+      await bulkCancelCertificates.mutateAsync({ ids: selectedCertificateIds });
+    } finally {
+      setIsBulkLoading(false);
+    }
+  };
+
+  const handleBulkUpdateDRSStatus = async (status: string) => {
+    setIsBulkLoading(true);
+    try {
+      await bulkUpdateDRSStatus.mutateAsync({ 
+        ids: selectedDRSIds, 
+        status: status as "pending" | "processing" | "completed" | "rejected"
+      });
+    } finally {
+      setIsBulkLoading(false);
+    }
   };
 
   return (
@@ -181,19 +275,6 @@ export default function Recordkeeping() {
           <Card className="bg-[#1e3a5f] border-0 text-white">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center">
-                  <RefreshCw className="w-5 h-5 text-green-400" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{dtcRequests?.length || 0}</p>
-                  <p className="text-sm text-slate-400">DRS/DTC Requests</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="bg-[#1e3a5f] border-0 text-white">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-red-500/20 rounded-lg flex items-center justify-center">
                   <AlertTriangle className="w-5 h-5 text-red-400" />
                 </div>
@@ -201,7 +282,22 @@ export default function Recordkeeping() {
                   <p className="text-2xl font-bold">
                     {certificates?.filter((c: any) => c.status === 'lost' || c.status === 'stolen').length || 0}
                   </p>
-                  <p className="text-sm text-slate-400">Lost Certificates</p>
+                  <p className="text-sm text-slate-400">Lost/Stolen</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-[#1e3a5f] border-0 text-white">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center">
+                  <RefreshCw className="w-5 h-5 text-purple-400" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">
+                    {dtcRequests?.filter((r: any) => r.status === 'pending').length || 0}
+                  </p>
+                  <p className="text-sm text-slate-400">Pending DRS</p>
                 </div>
               </div>
             </CardContent>
@@ -209,33 +305,33 @@ export default function Recordkeeping() {
         </div>
 
         {/* Main Content */}
-        <Card className="bg-white border-slate-200">
+        <Card>
           <CardHeader className="border-b">
             <div className="flex items-center justify-between">
-              <div className="flex gap-2">
-                <Button 
-                  variant={activeTab === "certificates" ? "default" : "outline"}
-                  onClick={() => setActiveTab("certificates")}
-                  className={activeTab === "certificates" ? "bg-[#1e3a5f]" : ""}
+              <div className="flex gap-4">
+                <Button
+                  variant={activeTab === "certificates" ? "default" : "ghost"}
+                  onClick={() => { setActiveTab("certificates"); setSelectedCertificateIds([]); }}
+                  className={activeTab === "certificates" ? "bg-cyan-600 hover:bg-cyan-700" : ""}
                 >
                   <Award className="w-4 h-4 mr-2" />
                   Certificates
                 </Button>
-                <Button 
-                  variant={activeTab === "book_entry" ? "default" : "outline"}
+                <Button
+                  variant={activeTab === "book_entry" ? "default" : "ghost"}
                   onClick={() => setActiveTab("book_entry")}
-                  className={activeTab === "book_entry" ? "bg-[#1e3a5f]" : ""}
+                  className={activeTab === "book_entry" ? "bg-cyan-600 hover:bg-cyan-700" : ""}
                 >
                   <BookOpen className="w-4 h-4 mr-2" />
-                  Shareholders
+                  Book Entry
                 </Button>
-                <Button 
-                  variant={activeTab === "drs" ? "default" : "outline"}
-                  onClick={() => setActiveTab("drs")}
-                  className={activeTab === "drs" ? "bg-[#1e3a5f]" : ""}
+                <Button
+                  variant={activeTab === "drs" ? "default" : "ghost"}
+                  onClick={() => { setActiveTab("drs"); setSelectedDRSIds([]); }}
+                  className={activeTab === "drs" ? "bg-cyan-600 hover:bg-cyan-700" : ""}
                 >
                   <RefreshCw className="w-4 h-4 mr-2" />
-                  DRS/DTC Requests
+                  DRS Requests
                 </Button>
               </div>
               <div className="flex gap-2">
@@ -264,6 +360,13 @@ export default function Recordkeeping() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-12">
+                      <Checkbox
+                        checked={selectedCertificateIds.length > 0 && 
+                          selectedCertificateIds.length === filteredCertificates.filter((c: any) => c.status === 'active').length}
+                        onCheckedChange={handleSelectAllCertificates}
+                      />
+                    </TableHead>
                     <TableHead>Certificate #</TableHead>
                     <TableHead>Holder</TableHead>
                     <TableHead>Shares</TableHead>
@@ -276,19 +379,26 @@ export default function Recordkeeping() {
                 <TableBody>
                   {!selectedCompanyId ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-slate-500">
+                      <TableCell colSpan={8} className="text-center py-8 text-slate-500">
                         Select a company to view certificates
                       </TableCell>
                     </TableRow>
                   ) : filteredCertificates.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-slate-500">
+                      <TableCell colSpan={8} className="text-center py-8 text-slate-500">
                         No certificates found. Click "New Record" to issue a certificate.
                       </TableCell>
                     </TableRow>
                   ) : (
                     filteredCertificates.map((cert: any) => (
-                      <TableRow key={cert.id}>
+                      <TableRow key={cert.id} className={selectedCertificateIds.includes(cert.id) ? "bg-cyan-50" : ""}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedCertificateIds.includes(cert.id)}
+                            onCheckedChange={(checked) => handleCertificateSelect(cert.id, checked as boolean)}
+                            disabled={cert.status !== 'active'}
+                          />
+                        </TableCell>
                         <TableCell className="font-mono">{cert.certificateNumber}</TableCell>
                         <TableCell className="font-medium">{cert.shareholderName}</TableCell>
                         <TableCell>{cert.shares?.toLocaleString()}</TableCell>
@@ -353,9 +463,7 @@ export default function Recordkeeping() {
                       <TableRow key={sh.id}>
                         <TableCell className="font-mono">{sh.accountNumber}</TableCell>
                         <TableCell className="font-medium">{sh.name}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="capitalize">{sh.type}</Badge>
-                        </TableCell>
+                        <TableCell className="capitalize">{sh.type}</TableCell>
                         <TableCell>{sh.email || '-'}</TableCell>
                         <TableCell>{getStatusBadge(sh.status)}</TableCell>
                         <TableCell>
@@ -379,11 +487,18 @@ export default function Recordkeeping() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-12">
+                      <Checkbox
+                        checked={selectedDRSIds.length > 0 && 
+                          selectedDRSIds.length === filteredDRSRequests.filter((r: any) => r.status === 'pending' || r.status === 'processing').length}
+                        onCheckedChange={handleSelectAllDRS}
+                      />
+                    </TableHead>
                     <TableHead>Request #</TableHead>
                     <TableHead>Type</TableHead>
-                    <TableHead>Shares</TableHead>
+                    <TableHead>DTC Participant</TableHead>
                     <TableHead>Broker</TableHead>
-                    <TableHead>Submitted</TableHead>
+                    <TableHead>Shares</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
@@ -391,48 +506,41 @@ export default function Recordkeeping() {
                 <TableBody>
                   {!selectedCompanyId ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-slate-500">
-                        Select a company to view DRS/DTC requests
+                      <TableCell colSpan={8} className="text-center py-8 text-slate-500">
+                        Select a company to view DRS requests
                       </TableCell>
                     </TableRow>
-                  ) : !dtcRequests || dtcRequests.length === 0 ? (
+                  ) : filteredDRSRequests.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-slate-500">
-                        No DRS/DTC requests found
+                      <TableCell colSpan={8} className="text-center py-8 text-slate-500">
+                        No DRS requests found.
                       </TableCell>
                     </TableRow>
                   ) : (
-                    dtcRequests.map((req: any) => (
-                      <TableRow key={req.id}>
-                        <TableCell className="font-mono">{req.requestNumber}</TableCell>
+                    filteredDRSRequests.map((req: any) => (
+                      <TableRow key={req.id} className={selectedDRSIds.includes(req.id) ? "bg-cyan-50" : ""}>
                         <TableCell>
-                          <Badge variant="outline" className="capitalize">{req.type}</Badge>
+                          <Checkbox
+                            checked={selectedDRSIds.includes(req.id)}
+                            onCheckedChange={(checked) => handleDRSSelect(req.id, checked as boolean)}
+                            disabled={req.status === 'completed' || req.status === 'rejected'}
+                          />
                         </TableCell>
-                        <TableCell>{req.shares?.toLocaleString()}</TableCell>
+                        <TableCell className="font-mono">{req.requestNumber}</TableCell>
+                        <TableCell className="capitalize">{req.type?.replace('_', ' ')}</TableCell>
+                        <TableCell>{req.dtcParticipantNumber}</TableCell>
                         <TableCell>{req.brokerName || '-'}</TableCell>
-                        <TableCell>{req.createdAt ? new Date(req.createdAt).toLocaleDateString() : '-'}</TableCell>
+                        <TableCell>{req.shares?.toLocaleString()}</TableCell>
                         <TableCell>{getStatusBadge(req.status)}</TableCell>
                         <TableCell>
-                          <div className="flex gap-2">
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              onClick={() => handleViewDRSRequest(req)}
-                            >
-                              <Eye className="w-4 h-4 mr-1" />
-                              View
-                            </Button>
-                            {req.status === "pending" && (
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                className="text-green-600"
-                                onClick={() => toast.info("Process request - Feature coming soon")}
-                              >
-                                Process
-                              </Button>
-                            )}
-                          </div>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleViewDRSRequest(req)}
+                          >
+                            <Eye className="w-4 h-4 mr-1" />
+                            View
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))
@@ -442,95 +550,71 @@ export default function Recordkeeping() {
             )}
           </CardContent>
         </Card>
-
-        {/* Quick Actions */}
-        <div className="grid grid-cols-3 gap-4">
-          <Card className="bg-white border-slate-200">
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-amber-500" />
-                Lost Certificate Management
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-slate-600 mb-4">
-                Report and manage lost or stolen certificates. Initiate replacement process with indemnity bond requirements.
-              </p>
-              <Button variant="outline" className="w-full" onClick={() => toast.info("Report lost certificate - Feature coming soon")}>
-                Report Lost Certificate
-              </Button>
-            </CardContent>
-          </Card>
-          <Card className="bg-white border-slate-200">
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Download className="w-5 h-5 text-cyan-500" />
-                Export Records
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-slate-600 mb-4">
-                Generate and download comprehensive reports of all recordkeeping activities and holdings.
-              </p>
-              <Button variant="outline" className="w-full" onClick={() => toast.info("Export records - Feature coming soon")}>
-                Generate Report
-              </Button>
-            </CardContent>
-          </Card>
-          <Card className="bg-white border-slate-200">
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <RefreshCw className="w-5 h-5 text-green-500" />
-                DTC/DWAC Processing
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-slate-600 mb-4">
-                Process DTC deposits, withdrawals, and FAST transfers with automated settlement tracking.
-              </p>
-              <Button variant="outline" className="w-full" onClick={() => toast.info("New DTC request - Feature coming soon")}>
-                New DTC Request
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
       </div>
 
-      {/* Dialogs */}
-      {selectedCompanyId && (
-        <>
-          <NewShareholderDialog
-            open={showNewShareholderDialog}
-            onOpenChange={setShowNewShareholderDialog}
-            companyId={selectedCompanyId}
-            onSuccess={() => refetchShareholders()}
-          />
-          <NewCertificateDialog
-            open={showNewCertificateDialog}
-            onOpenChange={setShowNewCertificateDialog}
-            companyId={selectedCompanyId}
-            onSuccess={() => refetchCertificates()}
-          />
-          <ShareholderViewDialog
-            open={showShareholderViewDialog}
-            onOpenChange={setShowShareholderViewDialog}
-            shareholderId={selectedShareholderId}
-            companyId={selectedCompanyId}
-          />
-          <CertificateViewDialog
-            open={showCertificateViewDialog}
-            onOpenChange={setShowCertificateViewDialog}
-            certificate={selectedCertificate}
-            companyId={selectedCompanyId}
-          />
-          <DRSRequestViewDialog
-            open={showDRSViewDialog}
-            onOpenChange={setShowDRSViewDialog}
-            drsRequest={selectedDRSRequest}
-            companyId={selectedCompanyId}
-          />
-        </>
+      {/* Bulk Action Toolbars */}
+      {activeTab === "certificates" && (
+        <BulkActionToolbar
+          selectedCount={selectedCertificateIds.length}
+          onClearSelection={() => setSelectedCertificateIds([])}
+          onCancel={handleBulkCancelCertificates}
+          entityType="certificate"
+          isLoading={isBulkLoading}
+        />
       )}
+
+      {activeTab === "drs" && (
+        <BulkActionToolbar
+          selectedCount={selectedDRSIds.length}
+          onClearSelection={() => setSelectedDRSIds([])}
+          onUpdateStatus={handleBulkUpdateDRSStatus}
+          entityType="drs"
+          isLoading={isBulkLoading}
+        />
+      )}
+
+      {/* Dialogs */}
+      <NewShareholderDialog
+        open={showNewShareholderDialog}
+        onOpenChange={setShowNewShareholderDialog}
+        companyId={selectedCompanyId!}
+        onSuccess={() => {
+          refetchShareholders();
+          setShowNewShareholderDialog(false);
+        }}
+      />
+
+      <NewCertificateDialog
+        open={showNewCertificateDialog}
+        onOpenChange={setShowNewCertificateDialog}
+        companyId={selectedCompanyId!}
+        onSuccess={() => {
+          refetchCertificates();
+          setShowNewCertificateDialog(false);
+        }}
+      />
+
+      <ShareholderViewDialog
+        open={showShareholderViewDialog}
+        onOpenChange={setShowShareholderViewDialog}
+        shareholderId={selectedShareholderId}
+        companyId={selectedCompanyId!}
+        onUpdate={() => refetchShareholders()}
+      />
+
+      <CertificateViewDialog
+        open={showCertificateViewDialog}
+        onOpenChange={setShowCertificateViewDialog}
+        certificate={selectedCertificate}
+        companyId={selectedCompanyId!}
+      />
+
+      <DRSRequestViewDialog
+        open={showDRSViewDialog}
+        onOpenChange={setShowDRSViewDialog}
+        drsRequest={selectedDRSRequest}
+        companyId={selectedCompanyId!}
+      />
     </StockDashboardLayout>
   );
 }

@@ -178,3 +178,28 @@
 - [x] Transaction view dialog with audit trail
 - [x] DRS request view dialog with processing status
 - [x] Connect view buttons to new dialogs
+
+## Phase 5 - Bulk Operations and Document Attachments
+
+### Bulk Operations
+- [x] Multi-select checkboxes for certificates table
+- [x] Multi-select checkboxes for transactions table
+- [x] Multi-select checkboxes for DRS requests table
+- [x] Bulk approve transfers action
+- [x] Bulk reject transfers action
+- [x] Bulk cancel certificates action
+- [x] Bulk status update for DRS requests
+- [x] Selection counter and bulk action toolbar
+- [x] Confirmation dialogs for bulk actions
+
+### Document Attachments
+- [x] Create documents table in database schema
+- [x] Document upload API endpoint
+- [x] Document list API endpoint
+- [x] Document download API endpoint
+- [x] Document delete API endpoint
+- [x] Upload component for transactions
+- [x] Upload component for corporate actions
+- [x] Document list display in view dialogs
+- [x] Support for multiple file types (PDF, images, Word docs)
+- [x] File size validation and limits

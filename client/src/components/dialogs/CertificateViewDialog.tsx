@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
+import { DocumentUpload } from "@/components/DocumentUpload";
 
 interface CertificateViewDialogProps {
   open: boolean;
@@ -201,6 +202,22 @@ export function CertificateViewDialog({
                   {certificate.restrictionLegend || 
                     'THE SHARES REPRESENTED BY THIS CERTIFICATE HAVE NOT BEEN REGISTERED UNDER THE SECURITIES ACT OF 1933, AS AMENDED, OR APPLICABLE STATE SECURITIES LAWS. THESE SHARES MAY NOT BE SOLD, TRANSFERRED, PLEDGED OR HYPOTHECATED UNLESS REGISTERED UNDER SUCH ACT AND LAWS OR UNLESS AN EXEMPTION FROM REGISTRATION IS AVAILABLE.'}
                 </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Attached Documents */}
+          {certificate?.id && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-slate-500">Attached Documents</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <DocumentUpload
+                  companyId={companyId}
+                  entityType="certificate"
+                  entityId={certificate.id}
+                />
               </CardContent>
             </Card>
           )}

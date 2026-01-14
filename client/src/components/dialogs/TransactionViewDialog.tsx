@@ -23,6 +23,7 @@ import {
   AlertTriangle,
   Hash
 } from "lucide-react";
+import { DocumentUpload } from "@/components/DocumentUpload";
 
 interface TransactionViewDialogProps {
   open: boolean;
@@ -244,6 +245,22 @@ export function TransactionViewDialog({
               </CardHeader>
               <CardContent>
                 <p className="text-sm">{transaction.notes}</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Attached Documents */}
+          {transaction?.id && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-slate-500">Attached Documents</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <DocumentUpload
+                  companyId={companyId}
+                  entityType="transaction"
+                  entityId={transaction.id}
+                />
               </CardContent>
             </Card>
           )}

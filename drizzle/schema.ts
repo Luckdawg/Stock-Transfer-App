@@ -410,6 +410,24 @@ export const integrations = mysqlTable("integrations", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
+// ============================================
+// DOCUMENTS / ATTACHMENTS
+// ============================================
+export const documents = mysqlTable("documents", {
+  id: int("id").autoincrement().primaryKey(),
+  companyId: int("companyId").notNull(),
+  entityType: mysqlEnum("entityType", ["transaction", "corporate_action", "certificate", "shareholder", "dividend", "proxy_event"]).notNull(),
+  entityId: int("entityId").notNull(),
+  fileName: varchar("fileName", { length: 255 }).notNull(),
+  fileKey: varchar("fileKey", { length: 500 }).notNull(),
+  fileUrl: varchar("fileUrl", { length: 1000 }).notNull(),
+  fileSize: int("fileSize").notNull(),
+  mimeType: varchar("mimeType", { length: 100 }).notNull(),
+  description: text("description"),
+  uploadedBy: int("uploadedBy").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
 // Type exports
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
@@ -433,3 +451,4 @@ export type ComplianceAlert = typeof complianceAlerts.$inferSelect;
 export type AuditLogEntry = typeof auditLog.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
 export type Integration = typeof integrations.$inferSelect;
+export type Document = typeof documents.$inferSelect;
