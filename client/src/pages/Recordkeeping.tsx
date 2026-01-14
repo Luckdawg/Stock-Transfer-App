@@ -28,7 +28,13 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { useSelectedCompany, CompanySelector } from "@/components/CompanySelector";
-import { NewShareholderDialog, NewCertificateDialog, ShareholderViewDialog } from "@/components/dialogs";
+import { 
+  NewShareholderDialog, 
+  NewCertificateDialog, 
+  ShareholderViewDialog,
+  CertificateViewDialog,
+  DRSRequestViewDialog
+} from "@/components/dialogs";
 
 export default function Recordkeeping() {
   const [activeTab, setActiveTab] = useState<"certificates" | "book_entry" | "drs">("certificates");
@@ -36,7 +42,11 @@ export default function Recordkeeping() {
   const [showNewShareholderDialog, setShowNewShareholderDialog] = useState(false);
   const [showNewCertificateDialog, setShowNewCertificateDialog] = useState(false);
   const [showShareholderViewDialog, setShowShareholderViewDialog] = useState(false);
+  const [showCertificateViewDialog, setShowCertificateViewDialog] = useState(false);
+  const [showDRSViewDialog, setShowDRSViewDialog] = useState(false);
   const [selectedShareholderId, setSelectedShareholderId] = useState<number | null>(null);
+  const [selectedCertificate, setSelectedCertificate] = useState<any>(null);
+  const [selectedDRSRequest, setSelectedDRSRequest] = useState<any>(null);
   const { selectedCompanyId, setSelectedCompanyId } = useSelectedCompany();
 
   // Fetch real data
@@ -114,6 +124,16 @@ export default function Recordkeeping() {
   const handleViewShareholder = (shareholderId: number) => {
     setSelectedShareholderId(shareholderId);
     setShowShareholderViewDialog(true);
+  };
+
+  const handleViewCertificate = (certificate: any) => {
+    setSelectedCertificate(certificate);
+    setShowCertificateViewDialog(true);
+  };
+
+  const handleViewDRSRequest = (drsRequest: any) => {
+    setSelectedDRSRequest(drsRequest);
+    setShowDRSViewDialog(true);
   };
 
   return (
@@ -280,13 +300,7 @@ export default function Recordkeeping() {
                             <Button 
                               variant="ghost" 
                               size="sm"
-                              onClick={() => {
-                                if (cert.shareholderId) {
-                                  handleViewShareholder(cert.shareholderId);
-                                } else {
-                                  toast.info("View certificate details - Feature coming soon");
-                                }
-                              }}
+                              onClick={() => handleViewCertificate(cert)}
                             >
                               <Eye className="w-4 h-4 mr-1" />
                               View
@@ -403,8 +417,9 @@ export default function Recordkeeping() {
                             <Button 
                               variant="ghost" 
                               size="sm"
-                              onClick={() => toast.info("View request details - Feature coming soon")}
+                              onClick={() => handleViewDRSRequest(req)}
                             >
+                              <Eye className="w-4 h-4 mr-1" />
                               View
                             </Button>
                             {req.status === "pending" && (
@@ -500,6 +515,18 @@ export default function Recordkeeping() {
             open={showShareholderViewDialog}
             onOpenChange={setShowShareholderViewDialog}
             shareholderId={selectedShareholderId}
+            companyId={selectedCompanyId}
+          />
+          <CertificateViewDialog
+            open={showCertificateViewDialog}
+            onOpenChange={setShowCertificateViewDialog}
+            certificate={selectedCertificate}
+            companyId={selectedCompanyId}
+          />
+          <DRSRequestViewDialog
+            open={showDRSViewDialog}
+            onOpenChange={setShowDRSViewDialog}
+            drsRequest={selectedDRSRequest}
             companyId={selectedCompanyId}
           />
         </>

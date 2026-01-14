@@ -14,7 +14,7 @@ import {
 } from "../drizzle/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { nanoid } from "nanoid";
-import { generateCertificateHTML, generate1099DivHTML, getCertificateData, get1099DivData } from "./pdfGenerator";
+import { generateCertificateHTML, generate1099DivHTML, generateShareholderStatementHTML, getCertificateData, get1099DivData, getShareholderStatementData } from "./pdfGenerator";
 
 // Admin procedure middleware
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
@@ -177,6 +177,39 @@ export const appRouter = router({
       .input(z.object({ shareholderId: z.number() }))
       .query(async ({ input }) => {
         return db.getHoldingsByShareholder(input.shareholderId);
+      }),
+    
+    update: adminProcedure
+      .input(z.object({
+        id: z.number(),
+        name: z.string().optional(),
+        type: z.enum(['individual', 'joint', 'trust', 'corporation', 'partnership', 'ira', 'custodian']).optional(),
+        email: z.string().email().nullable().optional(),
+        phone: z.string().nullable().optional(),
+        taxId: z.string().nullable().optional(),
+        address1: z.string().nullable().optional(),
+        address2: z.string().nullable().optional(),
+        city: z.string().nullable().optional(),
+        state: z.string().nullable().optional(),
+        postalCode: z.string().nullable().optional(),
+        country: z.string().optional(),
+        status: z.enum(['active', 'inactive', 'suspended', 'deceased', 'escheated']).optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const database = await getDb();
+        if (!database) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' });
+        
+        const { id, ...updateData } = input;
+        const filteredData = Object.fromEntries(
+          Object.entries(updateData).filter(([_, v]) => v !== undefined)
+        );
+        
+        if (Object.keys(filteredData).length === 0) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: 'No fields to update' });
+        }
+        
+        await database.update(shareholders).set(filteredData).where(eq(shareholders.id, id));
+        return { success: true };
       }),
   }),
 
@@ -742,6 +775,17 @@ export const appRouter = router({
         }
         const html = generate1099DivHTML(data);
         return { html, recipientName: data.recipientName, taxYear: data.taxYear };
+      }),
+    
+    generateShareholderStatement: protectedProcedure
+      .input(z.object({ shareholderId: z.number() }))
+      .mutation(async ({ input }) => {
+        const data = await getShareholderStatementData(input.shareholderId);
+        if (!data) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Shareholder not found' });
+        }
+        const html = generateShareholderStatementHTML(data);
+        return { html, shareholderName: data.shareholderName, accountNumber: data.shareholderAccountNumber };
       }),
   }),
 });

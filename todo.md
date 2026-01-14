@@ -156,3 +156,25 @@
 - [x] Show holdings summary for the shareholder
 - [x] Display transaction history for the shareholder
 - [x] Show certificates owned by shareholder
+
+## Phase 4 - Enhanced View and Edit Features
+
+### Shareholder Edit Functionality
+- [x] Add edit mode to shareholder view dialog
+- [x] Enable editing of contact information (email, phone, address)
+- [x] Enable editing of account details (name, type, tax ID)
+- [x] Add save/cancel buttons with validation
+- [x] Update shareholder API endpoint for updates
+
+### PDF Statement Generation
+- [x] Create shareholder statement PDF template
+- [x] Include holdings summary in statement
+- [x] Include transaction history in statement
+- [x] Add download button to shareholder view dialog
+- [x] Implement statement generation API endpoint
+
+### View Dialogs for Other Entities
+- [x] Certificate view dialog with full details
+- [x] Transaction view dialog with audit trail
+- [x] DRS request view dialog with processing status
+- [x] Connect view buttons to new dialogs

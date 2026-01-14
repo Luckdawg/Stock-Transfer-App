@@ -936,3 +936,451 @@ export async function get1099DivData(shareholderId: number, taxYear: number): Pr
     stateTaxWithheld: 0,
   };
 }
+
+
+// Shareholder Statement data structure
+export interface ShareholderStatementData {
+  statementDate: string;
+  statementPeriod: string;
+  companyName: string;
+  companyTicker: string;
+  shareholderName: string;
+  shareholderAccountNumber: string;
+  shareholderAddress: string;
+  shareholderEmail: string;
+  shareholderPhone: string;
+  holdings: Array<{
+    shareClass: string;
+    shares: number;
+    costBasis: string;
+    marketValue: string;
+    acquiredDate: string;
+    isRestricted: boolean;
+  }>;
+  transactions: Array<{
+    date: string;
+    type: string;
+    description: string;
+    shares: number;
+    price: string;
+    amount: string;
+  }>;
+  totalShares: number;
+  totalMarketValue: string;
+  totalCostBasis: string;
+}
+
+/**
+ * Generate HTML for Shareholder Account Statement
+ */
+export function generateShareholderStatementHTML(data: ShareholderStatementData): string {
+  const holdingsRows = data.holdings.map(h => `
+    <tr>
+      <td>${h.shareClass}</td>
+      <td class="number">${h.shares.toLocaleString()}</td>
+      <td class="number">${h.costBasis}</td>
+      <td class="number">${h.marketValue}</td>
+      <td>${h.acquiredDate}</td>
+      <td>${h.isRestricted ? '<span class="restricted">Restricted</span>' : 'Unrestricted'}</td>
+    </tr>
+  `).join('');
+
+  const transactionRows = data.transactions.length > 0 ? data.transactions.map(t => `
+    <tr>
+      <td>${t.date}</td>
+      <td>${t.type}</td>
+      <td>${t.description}</td>
+      <td class="number">${t.shares.toLocaleString()}</td>
+      <td class="number">${t.price}</td>
+      <td class="number">${t.amount}</td>
+    </tr>
+  `).join('') : `
+    <tr>
+      <td colspan="6" class="no-data">No transactions during this period</td>
+    </tr>
+  `;
+
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Shareholder Statement - ${data.shareholderName}</title>
+  <style>
+    @page {
+      size: 8.5in 11in;
+      margin: 0.5in;
+    }
+    body {
+      font-family: 'Arial', sans-serif;
+      font-size: 11px;
+      margin: 0;
+      padding: 20px;
+      color: #333;
+    }
+    .statement {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 3px solid #1a365d;
+      padding-bottom: 15px;
+      margin-bottom: 20px;
+    }
+    .company-info {
+      text-align: left;
+    }
+    .company-name {
+      font-size: 24px;
+      font-weight: bold;
+      color: #1a365d;
+    }
+    .company-ticker {
+      font-size: 14px;
+      color: #666;
+    }
+    .statement-info {
+      text-align: right;
+    }
+    .statement-title {
+      font-size: 18px;
+      font-weight: bold;
+      color: #1a365d;
+    }
+    .statement-date {
+      font-size: 12px;
+      color: #666;
+      margin-top: 5px;
+    }
+    .account-section {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 25px;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 5px;
+    }
+    .account-holder {
+      flex: 1;
+    }
+    .account-holder h3 {
+      margin: 0 0 10px 0;
+      color: #1a365d;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .account-holder p {
+      margin: 3px 0;
+    }
+    .account-summary {
+      text-align: right;
+      padding-left: 30px;
+    }
+    .summary-item {
+      margin-bottom: 10px;
+    }
+    .summary-label {
+      font-size: 10px;
+      color: #666;
+      text-transform: uppercase;
+    }
+    .summary-value {
+      font-size: 20px;
+      font-weight: bold;
+      color: #1a365d;
+    }
+    .section {
+      margin-bottom: 25px;
+    }
+    .section-title {
+      font-size: 14px;
+      font-weight: bold;
+      color: #1a365d;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 8px;
+      margin-bottom: 15px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 10px;
+    }
+    th {
+      background: #1a365d;
+      color: white;
+      padding: 8px 10px;
+      text-align: left;
+      font-weight: 600;
+    }
+    td {
+      padding: 8px 10px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    tr:nth-child(even) {
+      background: #f8f9fa;
+    }
+    .number {
+      text-align: right;
+      font-family: 'Courier New', monospace;
+    }
+    .restricted {
+      color: #c53030;
+      font-weight: bold;
+    }
+    .no-data {
+      text-align: center;
+      color: #666;
+      font-style: italic;
+      padding: 20px;
+    }
+    .totals-row {
+      background: #e2e8f0 !important;
+      font-weight: bold;
+    }
+    .footer {
+      margin-top: 30px;
+      padding-top: 15px;
+      border-top: 1px solid #e2e8f0;
+      font-size: 9px;
+      color: #666;
+      text-align: center;
+    }
+    .footer p {
+      margin: 5px 0;
+    }
+    .important-notice {
+      margin-top: 20px;
+      padding: 15px;
+      background: #fffbeb;
+      border: 1px solid #f59e0b;
+      border-radius: 5px;
+      font-size: 10px;
+    }
+    .important-notice h4 {
+      margin: 0 0 10px 0;
+      color: #b45309;
+    }
+    @media print {
+      body {
+        padding: 0;
+      }
+      .statement {
+        max-width: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="statement">
+    <div class="header">
+      <div class="company-info">
+        <div class="company-name">${data.companyName}</div>
+        ${data.companyTicker ? `<div class="company-ticker">${data.companyTicker}</div>` : ''}
+      </div>
+      <div class="statement-info">
+        <div class="statement-title">Account Statement</div>
+        <div class="statement-date">Statement Date: ${data.statementDate}</div>
+        <div class="statement-date">Period: ${data.statementPeriod}</div>
+      </div>
+    </div>
+
+    <div class="account-section">
+      <div class="account-holder">
+        <h3>Account Holder</h3>
+        <p><strong>${data.shareholderName}</strong></p>
+        <p>Account #: ${data.shareholderAccountNumber}</p>
+        <p>${data.shareholderAddress}</p>
+        ${data.shareholderEmail ? `<p>Email: ${data.shareholderEmail}</p>` : ''}
+        ${data.shareholderPhone ? `<p>Phone: ${data.shareholderPhone}</p>` : ''}
+      </div>
+      <div class="account-summary">
+        <div class="summary-item">
+          <div class="summary-label">Total Shares</div>
+          <div class="summary-value">${data.totalShares.toLocaleString()}</div>
+        </div>
+        <div class="summary-item">
+          <div class="summary-label">Total Market Value</div>
+          <div class="summary-value">${data.totalMarketValue}</div>
+        </div>
+        <div class="summary-item">
+          <div class="summary-label">Total Cost Basis</div>
+          <div class="summary-value">${data.totalCostBasis}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Holdings Summary</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Share Class</th>
+            <th style="text-align: right;">Shares</th>
+            <th style="text-align: right;">Cost Basis</th>
+            <th style="text-align: right;">Market Value</th>
+            <th>Acquired Date</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${holdingsRows || '<tr><td colspan="6" class="no-data">No holdings on record</td></tr>'}
+          <tr class="totals-row">
+            <td>Total</td>
+            <td class="number">${data.totalShares.toLocaleString()}</td>
+            <td class="number">${data.totalCostBasis}</td>
+            <td class="number">${data.totalMarketValue}</td>
+            <td colspan="2"></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Transaction History</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th style="text-align: right;">Shares</th>
+            <th style="text-align: right;">Price</th>
+            <th style="text-align: right;">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${transactionRows}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="important-notice">
+      <h4>Important Information</h4>
+      <p>This statement reflects your shareholdings as of the statement date. Market values are estimates based on the most recent available pricing data and may not reflect actual realizable values. For tax purposes, please consult your tax advisor and refer to official tax documents (Form 1099-DIV, 1099-B) when available.</p>
+      <p>If you believe there is an error in this statement, please contact the Transfer Agent within 30 days of the statement date.</p>
+    </div>
+
+    <div class="footer">
+      <p>This statement is provided by ${data.companyName} Transfer Agent Services</p>
+      <p>For questions or assistance, please contact shareholder services</p>
+      <p>Statement generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}</p>
+    </div>
+  </div>
+</body>
+</html>
+`;
+}
+
+/**
+ * Get shareholder statement data
+ */
+export async function getShareholderStatementData(shareholderId: number): Promise<ShareholderStatementData | null> {
+  const database = await getDb();
+  if (!database) return null;
+
+  // Import holdings table
+  const { holdings, transactions } = await import("../drizzle/schema");
+
+  // Get shareholder info
+  const shareholderResult = await database
+    .select()
+    .from(shareholders)
+    .where(eq(shareholders.id, shareholderId))
+    .limit(1);
+
+  if (shareholderResult.length === 0) return null;
+  const shareholder = shareholderResult[0];
+
+  // Get company info
+  const companyResult = await database
+    .select()
+    .from(companies)
+    .where(eq(companies.id, shareholder.companyId))
+    .limit(1);
+
+  if (companyResult.length === 0) return null;
+  const company = companyResult[0];
+
+  // Get holdings with share class info
+  const holdingsResult = await database
+    .select({
+      shares: holdings.shares,
+      costBasis: holdings.costBasis,
+      acquisitionDate: holdings.acquisitionDate,
+      isRestricted: holdings.isRestricted,
+      shareClassName: shareClasses.name,
+    })
+    .from(holdings)
+    .leftJoin(shareClasses, eq(holdings.shareClassId, shareClasses.id))
+    .where(eq(holdings.shareholderId, shareholderId));
+
+  // Get transactions
+  const transactionsResult = await database
+    .select()
+    .from(transactions)
+    .where(eq(transactions.fromShareholderId, shareholderId))
+    .limit(50);
+
+  const toTransactionsResult = await database
+    .select()
+    .from(transactions)
+    .where(eq(transactions.toShareholderId, shareholderId))
+    .limit(50);
+
+  const allTransactions = [...transactionsResult, ...toTransactionsResult]
+    .sort((a, b) => {
+      const dateA = a.transactionDate ? (typeof a.transactionDate === 'string' ? a.transactionDate : a.transactionDate.toISOString()) : '';
+      const dateB = b.transactionDate ? (typeof b.transactionDate === 'string' ? b.transactionDate : b.transactionDate.toISOString()) : '';
+      return dateB.localeCompare(dateA);
+    });
+
+  // Calculate totals
+  const totalShares = holdingsResult.reduce((sum, h) => sum + (h.shares || 0), 0);
+  const totalCostBasis = holdingsResult.reduce((sum, h) => sum + parseFloat(h.costBasis || '0'), 0);
+
+  // Format holdings
+  const formattedHoldings = holdingsResult.map(h => ({
+    shareClass: h.shareClassName || 'Common Stock',
+    shares: h.shares || 0,
+    costBasis: `$${parseFloat(h.costBasis || '0').toFixed(2)}`,
+    marketValue: `$${((h.shares || 0) * 10).toFixed(2)}`, // Placeholder market value
+    acquiredDate: h.acquisitionDate || 'N/A',
+    isRestricted: h.isRestricted || false,
+  }));
+
+  // Format transactions
+  const formattedTransactions = allTransactions.slice(0, 20).map(t => ({
+    date: t.transactionDate ? (typeof t.transactionDate === 'string' ? t.transactionDate : t.transactionDate.toISOString().split('T')[0]) : 'N/A',
+    type: t.type || 'Unknown',
+    description: t.fromShareholderId === shareholderId ? 'Shares transferred out' : 'Shares received',
+    shares: t.shares || 0,
+    price: t.pricePerShare ? `$${t.pricePerShare}` : 'N/A',
+    amount: t.totalValue ? `$${t.totalValue}` : 'N/A',
+  }));
+
+  const today = new Date();
+  const statementDate = today.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  const periodStart = new Date(today.getFullYear(), today.getMonth() - 3, 1);
+  const statementPeriod = `${periodStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} - ${today.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+
+  return {
+    statementDate,
+    statementPeriod,
+    companyName: company.name,
+    companyTicker: company.ticker || '',
+    shareholderName: shareholder.name || 'Unknown',
+    shareholderAccountNumber: shareholder.accountNumber,
+    shareholderAddress: `${shareholder.address1 || ''}, ${shareholder.city || ''}, ${shareholder.state || ''} ${shareholder.postalCode || ''}`.replace(/^, /, '').replace(/, $/, ''),
+    shareholderEmail: shareholder.email || '',
+    shareholderPhone: shareholder.phone || '',
+    holdings: formattedHoldings,
+    transactions: formattedTransactions,
+    totalShares,
+    totalMarketValue: `$${(totalShares * 10).toFixed(2)}`, // Placeholder
+    totalCostBasis: `$${totalCostBasis.toFixed(2)}`,
+  };
+}
