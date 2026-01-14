@@ -28,13 +28,15 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { useSelectedCompany, CompanySelector } from "@/components/CompanySelector";
-import { NewShareholderDialog, NewCertificateDialog } from "@/components/dialogs";
+import { NewShareholderDialog, NewCertificateDialog, ShareholderViewDialog } from "@/components/dialogs";
 
 export default function Recordkeeping() {
   const [activeTab, setActiveTab] = useState<"certificates" | "book_entry" | "drs">("certificates");
   const [searchTerm, setSearchTerm] = useState("");
   const [showNewShareholderDialog, setShowNewShareholderDialog] = useState(false);
   const [showNewCertificateDialog, setShowNewCertificateDialog] = useState(false);
+  const [showShareholderViewDialog, setShowShareholderViewDialog] = useState(false);
+  const [selectedShareholderId, setSelectedShareholderId] = useState<number | null>(null);
   const { selectedCompanyId, setSelectedCompanyId } = useSelectedCompany();
 
   // Fetch real data
@@ -107,6 +109,11 @@ export default function Recordkeeping() {
     } else {
       toast.info("New DRS request - Feature coming soon");
     }
+  };
+
+  const handleViewShareholder = (shareholderId: number) => {
+    setSelectedShareholderId(shareholderId);
+    setShowShareholderViewDialog(true);
   };
 
   return (
@@ -263,13 +270,27 @@ export default function Recordkeeping() {
                     filteredCertificates.map((cert: any) => (
                       <TableRow key={cert.id}>
                         <TableCell className="font-mono">{cert.certificateNumber}</TableCell>
-                        <TableCell>{cert.shareholderName || 'Unknown'}</TableCell>
+                        <TableCell className="font-medium">{cert.shareholderName}</TableCell>
                         <TableCell>{cert.shares?.toLocaleString()}</TableCell>
-                        <TableCell>{cert.shareClassName || '-'}</TableCell>
+                        <TableCell>{cert.shareClassName || 'Common'}</TableCell>
                         <TableCell>{cert.issueDate || '-'}</TableCell>
                         <TableCell>{getStatusBadge(cert.status)}</TableCell>
                         <TableCell>
-                          <div className="flex gap-1">
+                          <div className="flex gap-2">
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => {
+                                if (cert.shareholderId) {
+                                  handleViewShareholder(cert.shareholderId);
+                                } else {
+                                  toast.info("View certificate details - Feature coming soon");
+                                }
+                              }}
+                            >
+                              <Eye className="w-4 h-4 mr-1" />
+                              View
+                            </Button>
                             <Button 
                               variant="ghost" 
                               size="sm"
@@ -279,24 +300,6 @@ export default function Recordkeeping() {
                               <Printer className="w-4 h-4 mr-1" />
                               Print
                             </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              onClick={() => toast.info("View certificate details - Feature coming soon")}
-                            >
-                              <Eye className="w-4 h-4 mr-1" />
-                              View
-                            </Button>
-                            {(cert.status === "lost" || cert.status === "stolen") && (
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                className="text-amber-600"
-                                onClick={() => toast.info("Replace certificate - Feature coming soon")}
-                              >
-                                Replace
-                              </Button>
-                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -345,7 +348,7 @@ export default function Recordkeeping() {
                           <Button 
                             variant="ghost" 
                             size="sm"
-                            onClick={() => toast.info("View shareholder details - Feature coming soon")}
+                            onClick={() => handleViewShareholder(sh.id)}
                           >
                             <Eye className="w-4 h-4 mr-1" />
                             View
@@ -492,6 +495,12 @@ export default function Recordkeeping() {
             onOpenChange={setShowNewCertificateDialog}
             companyId={selectedCompanyId}
             onSuccess={() => refetchCertificates()}
+          />
+          <ShareholderViewDialog
+            open={showShareholderViewDialog}
+            onOpenChange={setShowShareholderViewDialog}
+            shareholderId={selectedShareholderId}
+            companyId={selectedCompanyId}
           />
         </>
       )}

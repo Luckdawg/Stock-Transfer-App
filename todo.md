@@ -147,3 +147,12 @@
 - [x] New Proxy Event dialog/form
 - [x] New Equity Grant dialog/form
 - [x] Form validation and error handling
+
+## Phase 3 - View Feature Enhancement
+
+### Shareholder View Dialog
+- [x] View shareholder details dialog on Recordkeeping page
+- [x] Display shareholder profile information
+- [x] Show holdings summary for the shareholder
+- [x] Display transaction history for the shareholder
+- [x] Show certificates owned by shareholder
