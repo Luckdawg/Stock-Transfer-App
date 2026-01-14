@@ -11,6 +11,21 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { 
   ArrowRightLeft, 
   Search, 
@@ -23,34 +38,57 @@ import {
   TrendingUp,
   TrendingDown,
   FileText,
-  Calendar
+  Calendar,
+  Eye
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-
-// Demo data
-const transactions = [
-  { id: 1, number: "TX-2024120001", type: "transfer", from: "John Smith", to: "Jane Doe", shares: 5000, class: "Common", status: "completed", date: "2024-12-10", value: "$125,000" },
-  { id: 2, number: "TX-2024120002", type: "issuance", from: "Treasury", to: "Tech Ventures LLC", shares: 25000, class: "Preferred A", status: "pending", date: "2024-12-11", value: "$625,000" },
-  { id: 3, number: "TX-2024120003", type: "transfer", from: "Acme Corp", to: "Investment Fund I", shares: 10000, class: "Common", status: "approved", date: "2024-12-12", value: "$250,000" },
-  { id: 4, number: "TX-2024120004", type: "cancellation", from: "Bob Wilson", to: "-", shares: 2500, class: "Common", status: "processing", date: "2024-12-12", value: "$62,500" },
-  { id: 5, number: "TX-2024120005", type: "dtc_deposit", from: "Jane Doe", to: "DTC", shares: 3000, class: "Common", status: "completed", date: "2024-12-09", value: "$75,000" },
-];
-
-const corporateActions = [
-  { id: 1, number: "CA-2024-001", type: "split", title: "2-for-1 Stock Split", status: "scheduled", recordDate: "2024-12-20", effectiveDate: "2024-12-22" },
-  { id: 2, number: "CA-2024-002", type: "dividend_cash", title: "Q4 Cash Dividend", status: "announced", recordDate: "2024-12-15", paymentDate: "2024-12-30" },
-  { id: 3, number: "CA-2024-003", type: "merger", title: "Merger with XYZ Corp", status: "pending", recordDate: "2025-01-15", effectiveDate: "2025-02-01" },
-];
-
-const rule144Sales = [
-  { id: 1, holder: "John Smith (Insider)", shares: 10000, holdingPeriod: "18 months", volumeLimit: "25,000", status: "eligible", requestDate: "2024-12-10" },
-  { id: 2, holder: "Jane Doe (Affiliate)", shares: 5000, holdingPeriod: "8 months", volumeLimit: "15,000", status: "under_review", requestDate: "2024-12-11" },
-];
+import { trpc } from "@/lib/trpc";
+import { useSelectedCompany, CompanySelector } from "@/components/CompanySelector";
+import { NewTransactionDialog } from "@/components/dialogs";
 
 export default function Transactions() {
   const [activeTab, setActiveTab] = useState<"transactions" | "corporate_actions" | "rule_144">("transactions");
   const [searchTerm, setSearchTerm] = useState("");
+  const [showNewTransactionDialog, setShowNewTransactionDialog] = useState(false);
+  const [showCorporateActionDialog, setShowCorporateActionDialog] = useState(false);
+  const [corporateActionForm, setCorporateActionForm] = useState({
+    type: "dividend_cash" as "dividend_cash" | "dividend_stock" | "split" | "reverse_split" | "merger" | "acquisition" | "spin_off" | "rights_offering" | "tender_offer" | "consolidation" | "name_change" | "symbol_change",
+    title: "",
+    description: "",
+    recordDate: "",
+    effectiveDate: "",
+  });
+  const { selectedCompanyId, setSelectedCompanyId } = useSelectedCompany();
+
+  // Fetch real data
+  const { data: transactions, refetch: refetchTransactions } = trpc.transaction.list.useQuery(
+    { companyId: selectedCompanyId! },
+    { enabled: !!selectedCompanyId }
+  );
+
+  const { data: corporateActions, refetch: refetchCorporateActions } = trpc.corporateAction.list.useQuery(
+    { companyId: selectedCompanyId! },
+    { enabled: !!selectedCompanyId }
+  );
+
+  const createCorporateAction = trpc.corporateAction.create.useMutation({
+    onSuccess: () => {
+      toast.success("Corporate action created successfully");
+      setShowCorporateActionDialog(false);
+      setCorporateActionForm({
+        type: "dividend_cash",
+        title: "",
+        description: "",
+        recordDate: "",
+        effectiveDate: "",
+      });
+      refetchCorporateActions();
+    },
+    onError: (error) => {
+      toast.error(`Failed to create corporate action: ${error.message}`);
+    },
+  });
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -63,7 +101,8 @@ export default function Transactions() {
       case "processing":
         return <Badge className="bg-cyan-500/20 text-cyan-600 border-cyan-500/30"><Clock className="w-3 h-3 mr-1" />Processing</Badge>;
       case "rejected":
-        return <Badge className="bg-red-500/20 text-red-600 border-red-500/30"><XCircle className="w-3 h-3 mr-1" />Rejected</Badge>;
+      case "cancelled":
+        return <Badge className="bg-red-500/20 text-red-600 border-red-500/30"><XCircle className="w-3 h-3 mr-1" />{status}</Badge>;
       case "scheduled":
         return <Badge className="bg-purple-500/20 text-purple-600 border-purple-500/30"><Calendar className="w-3 h-3 mr-1" />Scheduled</Badge>;
       case "announced":
@@ -73,7 +112,7 @@ export default function Transactions() {
       case "under_review":
         return <Badge className="bg-amber-500/20 text-amber-600 border-amber-500/30">Under Review</Badge>;
       default:
-        return <Badge variant="outline">{status}</Badge>;
+        return <Badge variant="outline" className="capitalize">{status}</Badge>;
     }
   };
 
@@ -81,25 +120,65 @@ export default function Transactions() {
     switch (type) {
       case "transfer":
         return <Badge variant="outline" className="border-blue-500 text-blue-600"><ArrowRightLeft className="w-3 h-3 mr-1" />Transfer</Badge>;
+      case "issue":
       case "issuance":
         return <Badge variant="outline" className="border-green-500 text-green-600"><TrendingUp className="w-3 h-3 mr-1" />Issuance</Badge>;
+      case "redemption":
       case "cancellation":
-        return <Badge variant="outline" className="border-red-500 text-red-600"><TrendingDown className="w-3 h-3 mr-1" />Cancellation</Badge>;
-      case "dtc_deposit":
-        return <Badge variant="outline" className="border-purple-500 text-purple-600">DTC Deposit</Badge>;
+        return <Badge variant="outline" className="border-red-500 text-red-600"><TrendingDown className="w-3 h-3 mr-1" />Redemption</Badge>;
       case "split":
         return <Badge variant="outline" className="border-cyan-500 text-cyan-600">Stock Split</Badge>;
-      case "dividend_cash":
-        return <Badge variant="outline" className="border-green-500 text-green-600">Cash Dividend</Badge>;
+      case "dividend":
+        return <Badge variant="outline" className="border-green-500 text-green-600">Dividend</Badge>;
       case "merger":
         return <Badge variant="outline" className="border-amber-500 text-amber-600">Merger</Badge>;
       default:
-        return <Badge variant="outline">{type}</Badge>;
+        return <Badge variant="outline" className="capitalize">{type?.replace('_', ' ')}</Badge>;
     }
   };
 
+  const handleNewRecord = () => {
+    if (activeTab === "transactions") {
+      setShowNewTransactionDialog(true);
+    } else if (activeTab === "corporate_actions") {
+      setShowCorporateActionDialog(true);
+    } else {
+      toast.info("Rule 144 request - Feature coming soon");
+    }
+  };
+
+  const handleSubmitCorporateAction = () => {
+    if (!selectedCompanyId) {
+      toast.error("Please select a company first");
+      return;
+    }
+    if (!corporateActionForm.title || !corporateActionForm.recordDate) {
+      toast.error("Please fill in required fields");
+      return;
+    }
+    createCorporateAction.mutate({
+      companyId: selectedCompanyId,
+      ...corporateActionForm,
+    });
+  };
+
+  const filteredTransactions = transactions?.filter((tx: any) =>
+    tx.transactionNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    tx.fromShareholderName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    tx.toShareholderName?.toLowerCase().includes(searchTerm.toLowerCase())
+  ) || [];
+
   return (
-    <StockDashboardLayout title="TRANSACTIONS & CORPORATE ACTIONS">
+    <StockDashboardLayout 
+      title="TRANSACTIONS & CORPORATE ACTIONS"
+      companySelector={
+        <CompanySelector 
+          value={selectedCompanyId} 
+          onChange={setSelectedCompanyId}
+          className="w-64"
+        />
+      }
+    >
       <div className="space-y-6">
         {/* Stats Cards */}
         <div className="grid grid-cols-4 gap-4">
@@ -110,7 +189,9 @@ export default function Transactions() {
                   <Clock className="w-5 h-5 text-amber-400" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">15</p>
+                  <p className="text-2xl font-bold">
+                    {transactions?.filter((t: any) => t.status === 'pending').length || 0}
+                  </p>
                   <p className="text-sm text-slate-400">Pending Transactions</p>
                 </div>
               </div>
@@ -123,8 +204,10 @@ export default function Transactions() {
                   <CheckCircle2 className="w-5 h-5 text-green-400" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">248</p>
-                  <p className="text-sm text-slate-400">Completed This Month</p>
+                  <p className="text-2xl font-bold">
+                    {transactions?.filter((t: any) => t.status === 'completed').length || 0}
+                  </p>
+                  <p className="text-sm text-slate-400">Completed</p>
                 </div>
               </div>
             </CardContent>
@@ -136,8 +219,8 @@ export default function Transactions() {
                   <Calendar className="w-5 h-5 text-purple-400" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">3</p>
-                  <p className="text-sm text-slate-400">Upcoming Corp Actions</p>
+                  <p className="text-2xl font-bold">{corporateActions?.length || 0}</p>
+                  <p className="text-sm text-slate-400">Corporate Actions</p>
                 </div>
               </div>
             </CardContent>
@@ -149,8 +232,8 @@ export default function Transactions() {
                   <AlertTriangle className="w-5 h-5 text-cyan-400" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">2</p>
-                  <p className="text-sm text-slate-400">Rule 144 Reviews</p>
+                  <p className="text-2xl font-bold">{transactions?.length || 0}</p>
+                  <p className="text-sm text-slate-400">Total Transactions</p>
                 </div>
               </div>
             </CardContent>
@@ -197,11 +280,11 @@ export default function Transactions() {
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </div>
-                <Button variant="outline">
+                <Button variant="outline" onClick={() => toast.info("Filter feature coming soon")}>
                   <Filter className="w-4 h-4 mr-2" />
                   Filter
                 </Button>
-                <Button className="bg-cyan-600 hover:bg-cyan-700">
+                <Button className="bg-cyan-600 hover:bg-cyan-700" onClick={handleNewRecord}>
                   <Plus className="w-4 h-4 mr-2" />
                   {activeTab === "transactions" ? "New Transaction" : activeTab === "corporate_actions" ? "New Action" : "New Request"}
                 </Button>
@@ -218,33 +301,59 @@ export default function Transactions() {
                     <TableHead>From</TableHead>
                     <TableHead>To</TableHead>
                     <TableHead>Shares</TableHead>
-                    <TableHead>Value</TableHead>
                     <TableHead>Date</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {transactions.map((tx) => (
-                    <TableRow key={tx.id}>
-                      <TableCell className="font-mono">{tx.number}</TableCell>
-                      <TableCell>{getTypeBadge(tx.type)}</TableCell>
-                      <TableCell>{tx.from}</TableCell>
-                      <TableCell>{tx.to}</TableCell>
-                      <TableCell>{tx.shares.toLocaleString()}</TableCell>
-                      <TableCell className="font-medium">{tx.value}</TableCell>
-                      <TableCell>{tx.date}</TableCell>
-                      <TableCell>{getStatusBadge(tx.status)}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button variant="ghost" size="sm" onClick={() => toast.info("View transaction - Feature coming soon")}>View</Button>
-                          {tx.status === "pending" && (
-                            <Button variant="ghost" size="sm" className="text-green-600" onClick={() => toast.info("Approve transaction - Feature coming soon")}>Approve</Button>
-                          )}
-                        </div>
+                  {!selectedCompanyId ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8 text-slate-500">
+                        Select a company to view transactions
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : filteredTransactions.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8 text-slate-500">
+                        No transactions found. Click "New Transaction" to create one.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredTransactions.map((tx: any) => (
+                      <TableRow key={tx.id}>
+                        <TableCell className="font-mono">{tx.transactionNumber}</TableCell>
+                        <TableCell>{getTypeBadge(tx.type)}</TableCell>
+                        <TableCell>{tx.fromShareholderName || '-'}</TableCell>
+                        <TableCell>{tx.toShareholderName || '-'}</TableCell>
+                        <TableCell>{tx.shares?.toLocaleString()}</TableCell>
+                        <TableCell>{tx.transactionDate || '-'}</TableCell>
+                        <TableCell>{getStatusBadge(tx.status)}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => toast.info("View transaction - Feature coming soon")}
+                            >
+                              <Eye className="w-4 h-4 mr-1" />
+                              View
+                            </Button>
+                            {tx.status === "pending" && (
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="text-green-600"
+                                onClick={() => toast.info("Approve transaction - Feature coming soon")}
+                              >
+                                Approve
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             )}
@@ -253,32 +362,58 @@ export default function Transactions() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Action #</TableHead>
-                    <TableHead>Type</TableHead>
                     <TableHead>Title</TableHead>
+                    <TableHead>Type</TableHead>
                     <TableHead>Record Date</TableHead>
-                    <TableHead>Effective/Payment Date</TableHead>
+                    <TableHead>Effective Date</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {corporateActions.map((action) => (
-                    <TableRow key={action.id}>
-                      <TableCell className="font-mono">{action.number}</TableCell>
-                      <TableCell>{getTypeBadge(action.type)}</TableCell>
-                      <TableCell className="font-medium">{action.title}</TableCell>
-                      <TableCell>{action.recordDate}</TableCell>
-                      <TableCell>{action.effectiveDate || action.paymentDate}</TableCell>
-                      <TableCell>{getStatusBadge(action.status)}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button variant="ghost" size="sm" onClick={() => toast.info("View action details - Feature coming soon")}>View</Button>
-                          <Button variant="ghost" size="sm" className="text-cyan-600" onClick={() => toast.info("Process action - Feature coming soon")}>Process</Button>
-                        </div>
+                  {!selectedCompanyId ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-8 text-slate-500">
+                        Select a company to view corporate actions
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : !corporateActions || corporateActions.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-8 text-slate-500">
+                        No corporate actions found. Click "New Action" to create one.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    corporateActions.map((action: any) => (
+                      <TableRow key={action.id}>
+                        <TableCell className="font-medium">{action.title}</TableCell>
+                        <TableCell>{getTypeBadge(action.type)}</TableCell>
+                        <TableCell>{action.recordDate || '-'}</TableCell>
+                        <TableCell>{action.effectiveDate || '-'}</TableCell>
+                        <TableCell>{getStatusBadge(action.status)}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => toast.info("View action details - Feature coming soon")}
+                            >
+                              <Eye className="w-4 h-4 mr-1" />
+                              View
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="text-cyan-600"
+                              onClick={() => toast.info("Process action - Feature coming soon")}
+                            >
+                              Process
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             )}
@@ -297,33 +432,106 @@ export default function Transactions() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {rule144Sales.map((sale) => (
-                    <TableRow key={sale.id}>
-                      <TableCell className="font-medium">{sale.holder}</TableCell>
-                      <TableCell>{sale.shares.toLocaleString()}</TableCell>
-                      <TableCell>{sale.holdingPeriod}</TableCell>
-                      <TableCell>{sale.volumeLimit}</TableCell>
-                      <TableCell>{sale.requestDate}</TableCell>
-                      <TableCell>{getStatusBadge(sale.status)}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button variant="ghost" size="sm" onClick={() => toast.info("View details - Feature coming soon")}>View</Button>
-                          {sale.status === "under_review" && (
-                            <>
-                              <Button variant="ghost" size="sm" className="text-green-600" onClick={() => toast.info("Approve sale - Feature coming soon")}>Approve</Button>
-                              <Button variant="ghost" size="sm" className="text-red-600" onClick={() => toast.info("Reject sale - Feature coming soon")}>Reject</Button>
-                            </>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8 text-slate-500">
+                      Rule 144 sales tracking - Feature coming soon
+                    </TableCell>
+                  </TableRow>
                 </TableBody>
               </Table>
             )}
           </CardContent>
         </Card>
       </div>
+
+      {/* New Transaction Dialog */}
+      {selectedCompanyId && (
+        <NewTransactionDialog
+          open={showNewTransactionDialog}
+          onOpenChange={setShowNewTransactionDialog}
+          companyId={selectedCompanyId}
+          onSuccess={() => refetchTransactions()}
+        />
+      )}
+
+      {/* New Corporate Action Dialog */}
+      <Dialog open={showCorporateActionDialog} onOpenChange={setShowCorporateActionDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>New Corporate Action</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Type *</Label>
+              <Select
+                value={corporateActionForm.type}
+                onValueChange={(value: any) => setCorporateActionForm({ ...corporateActionForm, type: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="dividend_cash">Cash Dividend</SelectItem>
+                  <SelectItem value="dividend_stock">Stock Dividend</SelectItem>
+                  <SelectItem value="split">Stock Split</SelectItem>
+                  <SelectItem value="reverse_split">Reverse Split</SelectItem>
+                  <SelectItem value="merger">Merger</SelectItem>
+                  <SelectItem value="acquisition">Acquisition</SelectItem>
+                  <SelectItem value="spin_off">Spin-off</SelectItem>
+                  <SelectItem value="rights_offering">Rights Offering</SelectItem>
+                  <SelectItem value="tender_offer">Tender Offer</SelectItem>
+                  <SelectItem value="consolidation">Consolidation</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Title *</Label>
+              <Input
+                value={corporateActionForm.title}
+                onChange={(e) => setCorporateActionForm({ ...corporateActionForm, title: e.target.value })}
+                placeholder="e.g., Q4 2024 Dividend"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Input
+                value={corporateActionForm.description}
+                onChange={(e) => setCorporateActionForm({ ...corporateActionForm, description: e.target.value })}
+                placeholder="Optional description"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Record Date *</Label>
+                <Input
+                  type="date"
+                  value={corporateActionForm.recordDate}
+                  onChange={(e) => setCorporateActionForm({ ...corporateActionForm, recordDate: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Effective Date</Label>
+                <Input
+                  type="date"
+                  value={corporateActionForm.effectiveDate}
+                  onChange={(e) => setCorporateActionForm({ ...corporateActionForm, effectiveDate: e.target.value })}
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCorporateActionDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSubmitCorporateAction}
+              disabled={createCorporateAction.isPending}
+            >
+              {createCorporateAction.isPending ? "Creating..." : "Create Action"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </StockDashboardLayout>
   );
 }

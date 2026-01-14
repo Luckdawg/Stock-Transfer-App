@@ -44,9 +44,10 @@ const navItems = [
 interface StockDashboardLayoutProps {
   children: ReactNode;
   title?: string;
+  companySelector?: ReactNode;
 }
 
-export default function StockDashboardLayout({ children, title }: StockDashboardLayoutProps) {
+export default function StockDashboardLayout({ children, title, companySelector }: StockDashboardLayoutProps) {
   const { user, loading, isAuthenticated, logout } = useAuth();
   const [location] = useLocation();
 
@@ -150,6 +151,7 @@ export default function StockDashboardLayout({ children, title }: StockDashboard
             </p>
           </div>
           <div className="flex items-center gap-4">
+            {companySelector}
             <Search className="w-5 h-5 text-slate-400 cursor-pointer hover:text-white" />
             <div className="relative">
               <Bell className="w-5 h-5 text-slate-400 cursor-pointer hover:text-white" />

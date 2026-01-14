@@ -14,6 +14,7 @@ import {
 } from "../drizzle/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { nanoid } from "nanoid";
+import { generateCertificateHTML, generate1099DivHTML, getCertificateData, get1099DivData } from "./pdfGenerator";
 
 // Admin procedure middleware
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
@@ -650,7 +651,6 @@ export const appRouter = router({
         await database.update(complianceAlerts)
           .set({ 
             status: 'resolved', 
-            resolvedAt: new Date(),
             resolvedBy: ctx.user.id,
           })
           .where(eq(complianceAlerts.id, input.id));
@@ -715,6 +715,33 @@ export const appRouter = router({
       .input(z.object({ companyId: z.number() }))
       .query(async ({ input }) => {
         return db.getDashboardStats(input.companyId);
+      }),
+  }),
+
+  // ============================================
+  // PDF GENERATION
+  // ============================================
+  pdf: router({
+    generateCertificate: protectedProcedure
+      .input(z.object({ certificateId: z.number() }))
+      .mutation(async ({ input }) => {
+        const data = await getCertificateData(input.certificateId);
+        if (!data) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Certificate not found' });
+        }
+        const html = generateCertificateHTML(data);
+        return { html, certificateNumber: data.certificateNumber };
+      }),
+    
+    generate1099Div: protectedProcedure
+      .input(z.object({ shareholderId: z.number(), taxYear: z.number() }))
+      .mutation(async ({ input }) => {
+        const data = await get1099DivData(input.shareholderId, input.taxYear);
+        if (!data) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Shareholder not found' });
+        }
+        const html = generate1099DivHTML(data);
+        return { html, recipientName: data.recipientName, taxYear: data.taxYear };
       }),
   }),
 });

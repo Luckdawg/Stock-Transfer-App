@@ -110,3 +110,40 @@
 - [x] Equity plans router tests
 - [x] Compliance router tests
 - [x] Audit router tests
+
+## New Features (Phase 2)
+
+### Data Seeding
+- [x] Create seed script with realistic sample data
+- [x] Sample companies (multiple for multi-tenant testing)
+- [x] Sample shareholders with diverse profiles
+- [x] Sample share classes and holdings
+- [x] Sample transactions and corporate actions
+- [x] Sample dividends and distributions
+- [x] Sample proxy events and votes
+- [x] Sample equity grants and vesting schedules
+- [x] Sample compliance alerts
+
+### Multi-Tenant Architecture
+- [x] Company-based data isolation
+- [x] User-company association
+- [x] Company selector in navigation
+- [x] Tenant-aware API queries
+- [x] Admin can manage multiple companies
+
+### PDF Document Generation
+- [x] Stock certificate PDF generation
+- [x] 1099-DIV tax form PDF
+- [x] 1099-B tax form PDF
+- [x] Certificate template design
+- [x] Tax form template design
+
+### Functional New Record Buttons
+- [x] New Shareholder dialog/form
+- [x] New Transaction dialog/form
+- [x] New Certificate dialog/form
+- [x] New Corporate Action dialog/form
+- [x] New Dividend dialog/form
+- [x] New Proxy Event dialog/form
+- [x] New Equity Grant dialog/form
+- [x] Form validation and error handling
