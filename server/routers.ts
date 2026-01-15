@@ -10,7 +10,7 @@ import {
   companies, shareClasses, shareholders, holdings, certificates,
   transactions, dtcRequests, corporateActions, dividends, proxyEvents,
   proxyProposals, proxyVotes, equityPlans, equityGrants, vestingEvents,
-  taxForms, complianceAlerts, notifications, integrations, documents
+  taxForms, complianceAlerts, notifications, integrations, documents, users
 } from "../drizzle/schema";
 import { storagePut } from "./storage";
 import { eq, and, desc } from "drizzle-orm";
@@ -57,7 +57,22 @@ export const appRouter = router({
         name: z.string().min(1),
         ticker: z.string().optional(),
         cik: z.string().optional(),
+        ein: z.string().optional(),
         incorporationState: z.string().optional(),
+        incorporationDate: z.string().optional(),
+        fiscalYearEnd: z.string().optional(),
+        industry: z.string().optional(),
+        sector: z.string().optional(),
+        address1: z.string().optional(),
+        address2: z.string().optional(),
+        city: z.string().optional(),
+        state: z.string().optional(),
+        postalCode: z.string().optional(),
+        country: z.string().optional(),
+        phone: z.string().optional(),
+        email: z.string().optional(),
+        website: z.string().optional(),
+        description: z.string().optional(),
       }))
       .mutation(async ({ input }) => {
         const database = await getDb();
@@ -67,9 +82,81 @@ export const appRouter = router({
           name: input.name,
           ticker: input.ticker ?? null,
           cik: input.cik ?? null,
+          ein: input.ein ?? null,
           incorporationState: input.incorporationState ?? null,
+          incorporationDate: input.incorporationDate ?? null,
+          fiscalYearEnd: input.fiscalYearEnd ?? null,
+          industry: input.industry ?? null,
+          sector: input.sector ?? null,
+          address1: input.address1 ?? null,
+          address2: input.address2 ?? null,
+          city: input.city ?? null,
+          state: input.state ?? null,
+          postalCode: input.postalCode ?? null,
+          country: input.country ?? 'USA',
+          phone: input.phone ?? null,
+          email: input.email ?? null,
+          website: input.website ?? null,
+          description: input.description ?? null,
         });
         return { id: result[0].insertId };
+      }),
+    
+    update: adminProcedure
+      .input(z.object({
+        id: z.number(),
+        name: z.string().min(1).optional(),
+        ticker: z.string().optional(),
+        cik: z.string().optional(),
+        ein: z.string().optional(),
+        incorporationState: z.string().optional(),
+        incorporationDate: z.string().optional(),
+        fiscalYearEnd: z.string().optional(),
+        industry: z.string().optional(),
+        sector: z.string().optional(),
+        address1: z.string().optional(),
+        address2: z.string().optional(),
+        city: z.string().optional(),
+        state: z.string().optional(),
+        postalCode: z.string().optional(),
+        country: z.string().optional(),
+        phone: z.string().optional(),
+        email: z.string().optional(),
+        website: z.string().optional(),
+        description: z.string().optional(),
+        status: z.enum(['active', 'inactive', 'suspended']).optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const database = await getDb();
+        if (!database) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' });
+        
+        const { id, ...updateData } = input;
+        const cleanedData: Record<string, any> = {};
+        
+        for (const [key, value] of Object.entries(updateData)) {
+          if (value !== undefined) {
+            cleanedData[key] = value;
+          }
+        }
+        
+        if (Object.keys(cleanedData).length === 0) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: 'No fields to update' });
+        }
+        
+        await database.update(companies)
+          .set(cleanedData)
+          .where(eq(companies.id, id));
+        
+        await db.createAuditEntry({
+          userId: ctx.user.id,
+          companyId: id,
+          action: 'UPDATE',
+          entityType: 'company',
+          entityId: id,
+          newValues: cleanedData,
+        });
+        
+        return { success: true };
       }),
     
     delete: adminProcedure
@@ -850,6 +937,7 @@ export const appRouter = router({
           .set({ 
             status: 'resolved', 
             resolvedBy: ctx.user.id,
+            resolvedAt: new Date(),
           })
           .where(eq(complianceAlerts.id, input.id));
         
@@ -1020,6 +1108,76 @@ export const appRouter = router({
         }
         const html = generateShareholderStatementHTML(data);
         return { html, shareholderName: data.shareholderName, accountNumber: data.shareholderAccountNumber };
+      }),
+  }),
+
+  // ============================================
+  // USER MANAGEMENT
+  // ============================================
+  user: router({
+    list: adminProcedure.query(async () => {
+      const database = await getDb();
+      if (!database) return [];
+      return database.select().from(users).orderBy(desc(users.createdAt));
+    }),
+    
+    getById: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ input }) => {
+        const database = await getDb();
+        if (!database) return null;
+        const result = await database.select().from(users).where(eq(users.id, input.id));
+        return result[0] || null;
+      }),
+    
+    update: adminProcedure
+      .input(z.object({
+        id: z.number(),
+        name: z.string().optional(),
+        email: z.string().optional(),
+        role: z.enum(['user', 'admin', 'issuer', 'shareholder', 'employee']).optional(),
+        companyId: z.number().nullable().optional(),
+        securityLevel: z.enum(['low', 'medium', 'high']).optional(),
+        mfaEnabled: z.boolean().optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const database = await getDb();
+        if (!database) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' });
+        
+        const { id, ...updateData } = input;
+        const cleanedData: Record<string, any> = {};
+        
+        for (const [key, value] of Object.entries(updateData)) {
+          if (value !== undefined) {
+            cleanedData[key] = value;
+          }
+        }
+        
+        if (Object.keys(cleanedData).length === 0) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: 'No fields to update' });
+        }
+        
+        await database.update(users)
+          .set(cleanedData)
+          .where(eq(users.id, id));
+        
+        return { success: true };
+      }),
+    
+    delete: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const database = await getDb();
+        if (!database) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' });
+        
+        // Cannot delete yourself
+        if (input.id === ctx.user.id) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: 'Cannot delete your own account' });
+        }
+        
+        await database.delete(users).where(eq(users.id, input.id));
+        
+        return { success: true };
       }),
   }),
 

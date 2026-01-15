@@ -129,7 +129,7 @@ export function DocumentUpload({ companyId, entityType, entityId, onUploadComple
                 <div>
                   <p className="text-sm font-medium text-slate-800">{doc.fileName}</p>
                   <p className="text-xs text-slate-500">
-                    {formatFileSize(doc.fileSize)} • {new Date(doc.createdAt).toLocaleDateString()}
+                    {formatFileSize(doc.fileSize)} • {doc.createdAt ? (typeof doc.createdAt === 'string' ? new Date(doc.createdAt).toLocaleDateString() : doc.createdAt instanceof Date ? doc.createdAt.toLocaleDateString() : String(doc.createdAt)) : 'N/A'}
                   </p>
                   {doc.description && (
                     <p className="text-xs text-slate-600 mt-1">{doc.description}</p>

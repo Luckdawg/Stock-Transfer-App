@@ -16,7 +16,9 @@ import {
   TrendingUp,
   Lock,
   LogOut,
-  Loader2
+  Loader2,
+  Building2,
+  UserCog
 } from "lucide-react";
 import { getLoginUrl } from "@/const";
 import { Link, useLocation } from "wouter";
@@ -38,6 +40,8 @@ const navItems = [
   { icon: ShieldCheck, label: "COMPLIANCE & REPORTING", path: "/compliance" },
   { icon: Briefcase, label: "EQUITY PLANS", path: "/equity-plans" },
   { icon: BarChart3, label: "ANALYTICS", path: "/analytics" },
+  { icon: Building2, label: "COMPANIES", path: "/companies" },
+  { icon: UserCog, label: "USERS", path: "/users" },
   { icon: Settings, label: "SETTINGS", path: "/settings" },
 ];
 

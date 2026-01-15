@@ -242,3 +242,23 @@
 - [x] Add export to Analytics page (holdings)
 - [x] Loading state during export generation
 - [x] Download file handling
+
+## Phase 8 - Bug Fixes and User Management
+
+### Bug Fixes
+- [ ] Fix transaction page Date rendering error (React error #31)
+- [ ] Ensure all Date objects are properly formatted before rendering
+
+### Company Management
+- [x] Add company creation form with detailed fields
+- [x] Add company edit functionality
+- [x] Add company delete with confirmation
+- [x] Display detailed company information (address, industry, fiscal year, etc.)
+- [x] Company settings page (integrated into view dialog)
+
+### User Profile and Management
+- [x] User profile page with editable information
+- [x] Ability to add new users to the system (via OAuth)
+- [x] User role management (admin, user, issuer, shareholder, employee)
+- [x] User list view for admins
+- [x] User delete functionality

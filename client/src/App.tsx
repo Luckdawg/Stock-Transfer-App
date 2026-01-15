@@ -13,6 +13,8 @@ import Compliance from "./pages/Compliance";
 import EquityPlans from "./pages/EquityPlans";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
+import Companies from "./pages/Companies";
+import Users from "./pages/Users";
 
 function Router() {
   return (
@@ -26,6 +28,8 @@ function Router() {
       <Route path={"/equity-plans"} component={EquityPlans} />
       <Route path={"/analytics"} component={Analytics} />
       <Route path={"/settings"} component={Settings} />
+      <Route path={"/companies"} component={Companies} />
+      <Route path={"/users"} component={Users} />
       <Route path={"/404"} component={NotFound} />
       <Route component={NotFound} />
     </Switch>
