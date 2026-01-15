@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -37,7 +39,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { 
   Users as UsersIcon, 
   Search, 
@@ -52,7 +54,14 @@ import {
   Loader2,
   UserCog,
   UserCheck,
-  UserX
+  UserPlus,
+  Send,
+  RefreshCw,
+  XCircle,
+  Clock,
+  CheckCircle,
+  Copy,
+  Link
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -61,22 +70,33 @@ import { useAuth } from "@/_core/hooks/useAuth";
 
 export default function Users() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [showNewUserDialog, setShowNewUserDialog] = useState(false);
+  const [activeTab, setActiveTab] = useState("users");
+  const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [showViewDialog, setShowViewDialog] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showRevokeConfirm, setShowRevokeConfirm] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [selectedInvitation, setSelectedInvitation] = useState<any>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<any>({});
+  const [inviteForm, setInviteForm] = useState({
+    email: "",
+    role: "user" as const,
+    companyId: null as number | null,
+    message: "",
+    expiresInDays: 7,
+  });
   const { user: currentUser } = useAuth();
 
-  const { data: users, refetch } = trpc.user.list.useQuery();
+  const { data: users, refetch: refetchUsers } = trpc.user.list.useQuery();
   const { data: companies } = trpc.company.list.useQuery();
+  const { data: invitationsList, refetch: refetchInvitations } = trpc.invitation.list.useQuery();
   
   const updateUser = trpc.user.update.useMutation({
     onSuccess: () => {
       toast.success("User updated successfully");
       setIsEditing(false);
-      refetch();
+      refetchUsers();
     },
     onError: (error) => {
       toast.error(`Failed to update user: ${error.message}`);
@@ -89,10 +109,50 @@ export default function Users() {
       setShowDeleteConfirm(false);
       setShowViewDialog(false);
       setSelectedUser(null);
-      refetch();
+      refetchUsers();
     },
     onError: (error) => {
       toast.error(`Failed to delete user: ${error.message}`);
+    },
+  });
+
+  const createInvitation = trpc.invitation.create.useMutation({
+    onSuccess: (data) => {
+      toast.success(`Invitation sent to ${data.email}`);
+      setShowInviteDialog(false);
+      setInviteForm({
+        email: "",
+        role: "user",
+        companyId: null,
+        message: "",
+        expiresInDays: 7,
+      });
+      refetchInvitations();
+    },
+    onError: (error) => {
+      toast.error(`Failed to send invitation: ${error.message}`);
+    },
+  });
+
+  const resendInvitation = trpc.invitation.resend.useMutation({
+    onSuccess: (data) => {
+      toast.success(`Invitation resent to ${data.email}`);
+      refetchInvitations();
+    },
+    onError: (error) => {
+      toast.error(`Failed to resend invitation: ${error.message}`);
+    },
+  });
+
+  const revokeInvitation = trpc.invitation.revoke.useMutation({
+    onSuccess: () => {
+      toast.success("Invitation revoked");
+      setShowRevokeConfirm(false);
+      setSelectedInvitation(null);
+      refetchInvitations();
+    },
+    onError: (error) => {
+      toast.error(`Failed to revoke invitation: ${error.message}`);
     },
   });
 
@@ -134,6 +194,20 @@ export default function Users() {
     deleteUser.mutate({ id: selectedUser.id });
   };
 
+  const handleSendInvitation = () => {
+    if (!inviteForm.email) {
+      toast.error("Email is required");
+      return;
+    }
+    createInvitation.mutate(inviteForm);
+  };
+
+  const handleCopyInviteLink = (token: string) => {
+    const link = `${window.location.origin}/invite/${token}`;
+    navigator.clipboard.writeText(link);
+    toast.success("Invitation link copied to clipboard");
+  };
+
   const getRoleBadge = (role: string) => {
     switch (role) {
       case "admin":
@@ -146,6 +220,25 @@ export default function Users() {
         return <Badge className="bg-amber-500/20 text-amber-600 border-amber-500/30"><User className="w-3 h-3 mr-1" />Employee</Badge>;
       default:
         return <Badge variant="outline"><User className="w-3 h-3 mr-1" />User</Badge>;
+    }
+  };
+
+  const getInvitationStatusBadge = (status: string, expiresAt: string) => {
+    const isExpired = new Date() > new Date(expiresAt);
+    if (status === 'pending' && isExpired) {
+      return <Badge className="bg-slate-500/20 text-slate-600 border-slate-500/30"><Clock className="w-3 h-3 mr-1" />Expired</Badge>;
+    }
+    switch (status) {
+      case "pending":
+        return <Badge className="bg-amber-500/20 text-amber-600 border-amber-500/30"><Clock className="w-3 h-3 mr-1" />Pending</Badge>;
+      case "accepted":
+        return <Badge className="bg-green-500/20 text-green-600 border-green-500/30"><CheckCircle className="w-3 h-3 mr-1" />Accepted</Badge>;
+      case "expired":
+        return <Badge className="bg-slate-500/20 text-slate-600 border-slate-500/30"><Clock className="w-3 h-3 mr-1" />Expired</Badge>;
+      case "revoked":
+        return <Badge className="bg-red-500/20 text-red-600 border-red-500/30"><XCircle className="w-3 h-3 mr-1" />Revoked</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
     }
   };
 
@@ -171,6 +264,12 @@ export default function Users() {
     user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.email?.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
+
+  const filteredInvitations = invitationsList?.filter((inv: any) =>
+    inv.email?.toLowerCase().includes(searchTerm.toLowerCase())
+  ) || [];
+
+  const pendingInvitations = invitationsList?.filter((inv: any) => inv.status === 'pending') || [];
 
   return (
     <StockDashboardLayout title="USER MANAGEMENT">
@@ -208,6 +307,19 @@ export default function Users() {
           <Card className="bg-[#1e3a5f] border-0 text-white">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-amber-500/20 rounded-lg flex items-center justify-center">
+                  <UserPlus className="w-5 h-5 text-amber-400" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{pendingInvitations.length}</p>
+                  <p className="text-sm text-slate-400">Pending Invites</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-[#1e3a5f] border-0 text-white">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center">
                   <UserCheck className="w-5 h-5 text-green-400" />
                 </div>
@@ -220,110 +332,313 @@ export default function Users() {
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-[#1e3a5f] border-0 text-white">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-amber-500/20 rounded-lg flex items-center justify-center">
-                  <UserCog className="w-5 h-5 text-amber-400" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">
-                    {users?.filter((u: any) => u.role === 'issuer').length || 0}
-                  </p>
-                  <p className="text-sm text-slate-400">Issuers</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </div>
 
-        {/* Main Content */}
+        {/* Main Content with Tabs */}
         <Card className="bg-white border-slate-200">
           <CardHeader className="border-b">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-lg font-semibold text-slate-800 flex items-center gap-2">
-                <UsersIcon className="w-5 h-5" />
-                Users
-              </CardTitle>
-              <div className="flex items-center gap-2">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <Input
-                    placeholder="Search users..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-9 w-64"
-                  />
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <div className="flex items-center justify-between">
+                  <TabsList>
+                    <TabsTrigger value="users" className="flex items-center gap-2">
+                      <UsersIcon className="w-4 h-4" />
+                      Users ({users?.length || 0})
+                    </TabsTrigger>
+                    <TabsTrigger value="invitations" className="flex items-center gap-2">
+                      <Mail className="w-4 h-4" />
+                      Invitations ({invitationsList?.length || 0})
+                    </TabsTrigger>
+                  </TabsList>
+                  <div className="flex items-center gap-2">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <Input
+                        placeholder={activeTab === 'users' ? "Search users..." : "Search invitations..."}
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-9 w-64"
+                      />
+                    </div>
+                    <Button onClick={() => setShowInviteDialog(true)} className="bg-[#1e3a5f]">
+                      <UserPlus className="w-4 h-4 mr-2" />
+                      Invite User
+                    </Button>
+                  </div>
                 </div>
-                <Button onClick={() => toast.info("New users are added via OAuth login. To invite a user, share the platform URL with them.")} className="bg-[#1e3a5f]">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Invite User
-                </Button>
-              </div>
+              </Tabs>
             </div>
           </CardHeader>
           <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>User</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Company</TableHead>
-                  <TableHead>Security</TableHead>
-                  <TableHead>Last Sign In</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredUsers.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-slate-500">
-                      No users found.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredUsers.map((user: any) => (
-                    <TableRow key={user.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-8 w-8">
-                            <AvatarFallback className="bg-[#1e3a5f] text-white text-xs">
-                              {getInitials(user.name)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span className="font-medium">{user.name || 'Unknown'}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>{user.email || '-'}</TableCell>
-                      <TableCell>{getRoleBadge(user.role)}</TableCell>
-                      <TableCell>
-                        {companies?.find((c: any) => c.id === user.companyId)?.name || '-'}
-                      </TableCell>
-                      <TableCell>{getSecurityBadge(user.securityLevel)}</TableCell>
-                      <TableCell>
-                        {user.lastSignedIn ? new Date(user.lastSignedIn).toLocaleDateString() : '-'}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => handleViewUser(user)}
-                          >
-                            <Eye className="w-4 h-4 mr-1" />
-                            View
-                          </Button>
-                        </div>
-                      </TableCell>
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsContent value="users" className="m-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>User</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Company</TableHead>
+                      <TableHead>Security</TableHead>
+                      <TableHead>Last Sign In</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredUsers.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-8 text-slate-500">
+                          No users found.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredUsers.map((user: any) => (
+                        <TableRow key={user.id}>
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <Avatar className="h-8 w-8">
+                                <AvatarFallback className="bg-[#1e3a5f] text-white text-xs">
+                                  {getInitials(user.name)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="font-medium">{user.name || 'Unknown'}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>{user.email || '-'}</TableCell>
+                          <TableCell>{getRoleBadge(user.role)}</TableCell>
+                          <TableCell>
+                            {companies?.find((c: any) => c.id === user.companyId)?.name || '-'}
+                          </TableCell>
+                          <TableCell>{getSecurityBadge(user.securityLevel)}</TableCell>
+                          <TableCell>
+                            {user.lastSignedIn ? new Date(user.lastSignedIn).toLocaleDateString() : '-'}
+                          </TableCell>
+                          <TableCell>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => handleViewUser(user)}
+                            >
+                              <Eye className="w-4 h-4 mr-1" />
+                              View
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </TabsContent>
+
+              <TabsContent value="invitations" className="m-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Company</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Expires</TableHead>
+                      <TableHead>Sent</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredInvitations.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-8 text-slate-500">
+                          No invitations found. Click "Invite User" to send an invitation.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredInvitations.map((invitation: any) => (
+                        <TableRow key={invitation.id}>
+                          <TableCell className="font-medium">{invitation.email}</TableCell>
+                          <TableCell>{getRoleBadge(invitation.role)}</TableCell>
+                          <TableCell>
+                            {companies?.find((c: any) => c.id === invitation.companyId)?.name || '-'}
+                          </TableCell>
+                          <TableCell>{getInvitationStatusBadge(invitation.status, invitation.expiresAt)}</TableCell>
+                          <TableCell>
+                            {new Date(invitation.expiresAt).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell>
+                            {new Date(invitation.createdAt).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-1">
+                              {invitation.status === 'pending' && (
+                                <>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    onClick={() => handleCopyInviteLink(invitation.token)}
+                                    title="Copy invitation link"
+                                  >
+                                    <Link className="w-4 h-4" />
+                                  </Button>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    onClick={() => resendInvitation.mutate({ id: invitation.id })}
+                                    disabled={resendInvitation.isPending}
+                                    title="Resend invitation"
+                                  >
+                                    {resendInvitation.isPending ? (
+                                      <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                      <RefreshCw className="w-4 h-4" />
+                                    )}
+                                  </Button>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    onClick={() => {
+                                      setSelectedInvitation(invitation);
+                                      setShowRevokeConfirm(true);
+                                    }}
+                                    className="text-red-600 hover:text-red-700"
+                                    title="Revoke invitation"
+                                  >
+                                    <XCircle className="w-4 h-4" />
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
       </div>
+
+      {/* Invite User Dialog */}
+      <Dialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="w-5 h-5" />
+              Invite New User
+            </DialogTitle>
+            <DialogDescription>
+              Send an invitation email to add a new user to the platform.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="email">Email Address *</Label>
+              <Input
+                id="email"
+                type="email"
+                value={inviteForm.email}
+                onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
+                placeholder="user@example.com"
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="role">Role</Label>
+              <Select
+                value={inviteForm.role}
+                onValueChange={(value: any) => setInviteForm({ ...inviteForm, role: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="user">User</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="issuer">Issuer</SelectItem>
+                  <SelectItem value="shareholder">Shareholder</SelectItem>
+                  <SelectItem value="employee">Employee</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <Label htmlFor="company">Company (Optional)</Label>
+              <Select
+                value={inviteForm.companyId?.toString() || "none"}
+                onValueChange={(value) => setInviteForm({ 
+                  ...inviteForm, 
+                  companyId: value === "none" ? null : parseInt(value) 
+                })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select company" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No Company</SelectItem>
+                  {companies?.map((company: any) => (
+                    <SelectItem key={company.id} value={company.id.toString()}>
+                      {company.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <Label htmlFor="expires">Expires In</Label>
+              <Select
+                value={inviteForm.expiresInDays.toString()}
+                onValueChange={(value) => setInviteForm({ ...inviteForm, expiresInDays: parseInt(value) })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1 day</SelectItem>
+                  <SelectItem value="3">3 days</SelectItem>
+                  <SelectItem value="7">7 days</SelectItem>
+                  <SelectItem value="14">14 days</SelectItem>
+                  <SelectItem value="30">30 days</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <Label htmlFor="message">Personal Message (Optional)</Label>
+              <Textarea
+                id="message"
+                value={inviteForm.message}
+                onChange={(e) => setInviteForm({ ...inviteForm, message: e.target.value })}
+                placeholder="Add a personal message to the invitation..."
+                rows={3}
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowInviteDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSendInvitation} 
+              className="bg-[#1e3a5f]"
+              disabled={createInvitation.isPending}
+            >
+              {createInvitation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Send className="w-4 h-4 mr-2" />
+                  Send Invitation
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* View/Edit User Dialog */}
       <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
@@ -554,7 +869,7 @@ export default function Users() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete User Confirmation Dialog */}
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -573,6 +888,32 @@ export default function Users() {
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 "Delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Revoke Invitation Confirmation Dialog */}
+      <AlertDialog open={showRevokeConfirm} onOpenChange={setShowRevokeConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Revoke Invitation</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to revoke the invitation for "{selectedInvitation?.email}"? 
+              They will no longer be able to use this invitation link.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => selectedInvitation && revokeInvitation.mutate({ id: selectedInvitation.id })}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {revokeInvitation.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                "Revoke"
               )}
             </AlertDialogAction>
           </AlertDialogFooter>

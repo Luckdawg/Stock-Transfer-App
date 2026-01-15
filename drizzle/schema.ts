@@ -19,6 +19,25 @@ export const users = mysqlTable("users", {
 });
 
 // ============================================
+// USER INVITATIONS
+// ============================================
+export const invitations = mysqlTable("invitations", {
+  id: int("id").autoincrement().primaryKey(),
+  email: varchar("email", { length: 320 }).notNull(),
+  token: varchar("token", { length: 64 }).notNull().unique(),
+  role: mysqlEnum("role", ["user", "admin", "issuer", "shareholder", "employee"]).default("user").notNull(),
+  companyId: int("companyId"),
+  status: mysqlEnum("status", ["pending", "accepted", "expired", "revoked"]).default("pending").notNull(),
+  invitedBy: int("invitedBy").notNull(),
+  acceptedBy: int("acceptedBy"),
+  message: text("message"),
+  expiresAt: timestamp("expiresAt").notNull(),
+  acceptedAt: timestamp("acceptedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+// ============================================
 // COMPANIES / ISSUERS
 // ============================================
 export const companies = mysqlTable("companies", {

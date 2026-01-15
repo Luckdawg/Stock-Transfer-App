@@ -262,3 +262,32 @@
 - [x] User role management (admin, user, issuer, shareholder, employee)
 - [x] User list view for admins
 - [x] User delete functionality
+
+## Phase 9 - User Invitation System
+
+### Database Schema
+- [x] Create invitations table with email, role, token, status, expiry
+- [x] Push database migration
+
+### API Endpoints
+- [x] Create invitation endpoint (admin only)
+- [x] List invitations endpoint
+- [x] Resend invitation endpoint
+- [x] Revoke invitation endpoint
+- [x] Accept invitation endpoint
+
+### UI Components
+- [x] Invite user dialog with email and role selection
+- [x] Pending invitations list in Users page
+- [x] Resend and revoke actions for pending invitations
+- [x] Invitation status badges (pending, accepted, expired, revoked)
+
+### Invitation Flow
+- [x] Generate unique invitation tokens
+- [x] Copy invitation link to clipboard
+- [x] Invitation acceptance page
+- [x] Auto-assign role on acceptance
+- [x] Handle expired invitations
+
+### Tests
+- [x] Invitation router tests (19 tests passing)

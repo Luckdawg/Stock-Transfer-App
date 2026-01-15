@@ -15,6 +15,7 @@ import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
 import Companies from "./pages/Companies";
 import Users from "./pages/Users";
+import AcceptInvitation from "./pages/AcceptInvitation";
 
 function Router() {
   return (
@@ -30,6 +31,7 @@ function Router() {
       <Route path={"/settings"} component={Settings} />
       <Route path={"/companies"} component={Companies} />
       <Route path={"/users"} component={Users} />
+      <Route path={"/invite/:token"} component={AcceptInvitation} />
       <Route path={"/404"} component={NotFound} />
       <Route component={NotFound} />
     </Switch>

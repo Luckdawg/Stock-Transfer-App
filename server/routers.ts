@@ -10,7 +10,7 @@ import {
   companies, shareClasses, shareholders, holdings, certificates,
   transactions, dtcRequests, corporateActions, dividends, proxyEvents,
   proxyProposals, proxyVotes, equityPlans, equityGrants, vestingEvents,
-  taxForms, complianceAlerts, notifications, integrations, documents, users
+  taxForms, complianceAlerts, notifications, integrations, documents, users, invitations
 } from "../drizzle/schema";
 import { storagePut } from "./storage";
 import { eq, and, desc } from "drizzle-orm";
@@ -1178,6 +1178,239 @@ export const appRouter = router({
         await database.delete(users).where(eq(users.id, input.id));
         
         return { success: true };
+      }),
+  }),
+
+  // ============================================
+  // INVITATIONS
+  // ============================================
+  invitation: router({
+    list: adminProcedure.query(async () => {
+      const database = await getDb();
+      if (!database) return [];
+      return database.select().from(invitations).orderBy(desc(invitations.createdAt));
+    }),
+    
+    create: adminProcedure
+      .input(z.object({
+        email: z.string().email(),
+        role: z.enum(['user', 'admin', 'issuer', 'shareholder', 'employee']).default('user'),
+        companyId: z.number().nullable().optional(),
+        message: z.string().optional(),
+        expiresInDays: z.number().min(1).max(30).default(7),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const database = await getDb();
+        if (!database) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' });
+        
+        // Check if email already has a pending invitation
+        const existing = await database.select().from(invitations)
+          .where(and(
+            eq(invitations.email, input.email),
+            eq(invitations.status, 'pending')
+          ));
+        
+        if (existing.length > 0) {
+          throw new TRPCError({ 
+            code: 'BAD_REQUEST', 
+            message: 'An invitation is already pending for this email address' 
+          });
+        }
+        
+        // Check if user already exists with this email
+        const existingUser = await database.select().from(users)
+          .where(eq(users.email, input.email));
+        
+        if (existingUser.length > 0) {
+          throw new TRPCError({ 
+            code: 'BAD_REQUEST', 
+            message: 'A user with this email already exists' 
+          });
+        }
+        
+        // Generate unique token
+        const token = nanoid(32);
+        
+        // Calculate expiry date
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + input.expiresInDays);
+        
+        const result = await database.insert(invitations).values({
+          email: input.email,
+          token,
+          role: input.role,
+          companyId: input.companyId ?? null,
+          message: input.message ?? null,
+          invitedBy: ctx.user.id,
+          expiresAt,
+        });
+        
+        return { 
+          id: result[0].insertId, 
+          token,
+          email: input.email,
+          expiresAt: expiresAt.toISOString()
+        };
+      }),
+    
+    resend: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const database = await getDb();
+        if (!database) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' });
+        
+        // Get the invitation
+        const [invitation] = await database.select().from(invitations)
+          .where(eq(invitations.id, input.id));
+        
+        if (!invitation) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Invitation not found' });
+        }
+        
+        if (invitation.status !== 'pending') {
+          throw new TRPCError({ 
+            code: 'BAD_REQUEST', 
+            message: 'Can only resend pending invitations' 
+          });
+        }
+        
+        // Generate new token and extend expiry
+        const newToken = nanoid(32);
+        const newExpiresAt = new Date();
+        newExpiresAt.setDate(newExpiresAt.getDate() + 7);
+        
+        await database.update(invitations)
+          .set({ 
+            token: newToken, 
+            expiresAt: newExpiresAt 
+          })
+          .where(eq(invitations.id, input.id));
+        
+        return { 
+          success: true, 
+          token: newToken,
+          email: invitation.email,
+          expiresAt: newExpiresAt.toISOString()
+        };
+      }),
+    
+    revoke: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        const database = await getDb();
+        if (!database) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' });
+        
+        // Get the invitation
+        const [invitation] = await database.select().from(invitations)
+          .where(eq(invitations.id, input.id));
+        
+        if (!invitation) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Invitation not found' });
+        }
+        
+        if (invitation.status !== 'pending') {
+          throw new TRPCError({ 
+            code: 'BAD_REQUEST', 
+            message: 'Can only revoke pending invitations' 
+          });
+        }
+        
+        await database.update(invitations)
+          .set({ status: 'revoked' })
+          .where(eq(invitations.id, input.id));
+        
+        return { success: true };
+      }),
+    
+    getByToken: publicProcedure
+      .input(z.object({ token: z.string() }))
+      .query(async ({ input }) => {
+        const database = await getDb();
+        if (!database) return null;
+        
+        const [invitation] = await database.select().from(invitations)
+          .where(eq(invitations.token, input.token));
+        
+        if (!invitation) return null;
+        
+        // Check if expired
+        if (new Date() > new Date(invitation.expiresAt)) {
+          // Mark as expired if still pending
+          if (invitation.status === 'pending') {
+            await database.update(invitations)
+              .set({ status: 'expired' })
+              .where(eq(invitations.id, invitation.id));
+          }
+          return { ...invitation, status: 'expired' as const };
+        }
+        
+        return invitation;
+      }),
+    
+    accept: publicProcedure
+      .input(z.object({ token: z.string() }))
+      .mutation(async ({ input, ctx }) => {
+        const database = await getDb();
+        if (!database) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' });
+        
+        // Get the invitation
+        const [invitation] = await database.select().from(invitations)
+          .where(eq(invitations.token, input.token));
+        
+        if (!invitation) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Invitation not found' });
+        }
+        
+        if (invitation.status !== 'pending') {
+          throw new TRPCError({ 
+            code: 'BAD_REQUEST', 
+            message: `This invitation has been ${invitation.status}` 
+          });
+        }
+        
+        // Check if expired
+        if (new Date() > new Date(invitation.expiresAt)) {
+          await database.update(invitations)
+            .set({ status: 'expired' })
+            .where(eq(invitations.id, invitation.id));
+          throw new TRPCError({ 
+            code: 'BAD_REQUEST', 
+            message: 'This invitation has expired' 
+          });
+        }
+        
+        // If user is logged in, update their role and mark invitation as accepted
+        if (ctx.user) {
+          await database.update(users)
+            .set({ 
+              role: invitation.role,
+              companyId: invitation.companyId,
+            })
+            .where(eq(users.id, ctx.user.id));
+          
+          await database.update(invitations)
+            .set({ 
+              status: 'accepted',
+              acceptedBy: ctx.user.id,
+              acceptedAt: new Date(),
+            })
+            .where(eq(invitations.id, invitation.id));
+          
+          return { 
+            success: true, 
+            message: 'Invitation accepted. Your role has been updated.',
+            requiresLogin: false
+          };
+        }
+        
+        // User not logged in - they need to sign in first
+        return { 
+          success: true, 
+          message: 'Please sign in to accept this invitation.',
+          requiresLogin: true,
+          email: invitation.email,
+          role: invitation.role
+        };
       }),
   }),
 
