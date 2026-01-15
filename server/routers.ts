@@ -16,6 +16,7 @@ import { storagePut } from "./storage";
 import { eq, and, desc } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { generateCertificateHTML, generate1099DivHTML, generateShareholderStatementHTML, getCertificateData, get1099DivData, getShareholderStatementData } from "./pdfGenerator";
+import { generateShareholdersCSV, generateTransactionsCSV, generateHoldingsCSV, generateCertificatesCSV, addBOM } from "./exportUtils";
 
 // Admin procedure middleware
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
@@ -1019,6 +1020,43 @@ export const appRouter = router({
         }
         const html = generateShareholderStatementHTML(data);
         return { html, shareholderName: data.shareholderName, accountNumber: data.shareholderAccountNumber };
+      }),
+  }),
+
+  // ============================================
+  // EXPORT (CSV/Excel)
+  // ============================================
+  export: router({
+    shareholders: protectedProcedure
+      .input(z.object({ companyId: z.number() }))
+      .mutation(async ({ input }) => {
+        const data = await db.getShareholdersByCompany(input.companyId);
+        const csv = addBOM(generateShareholdersCSV(data as any));
+        return { csv, filename: `shareholders_${input.companyId}_${Date.now()}.csv` };
+      }),
+    
+    transactions: protectedProcedure
+      .input(z.object({ companyId: z.number() }))
+      .mutation(async ({ input }) => {
+        const data = await db.getTransactionsByCompany(input.companyId);
+        const csv = addBOM(generateTransactionsCSV(data as any));
+        return { csv, filename: `transactions_${input.companyId}_${Date.now()}.csv` };
+      }),
+    
+    holdings: protectedProcedure
+      .input(z.object({ companyId: z.number() }))
+      .mutation(async ({ input }) => {
+        const data = await db.getHoldingsByCompany(input.companyId);
+        const csv = addBOM(generateHoldingsCSV(data as any));
+        return { csv, filename: `holdings_${input.companyId}_${Date.now()}.csv` };
+      }),
+    
+    certificates: protectedProcedure
+      .input(z.object({ companyId: z.number() }))
+      .mutation(async ({ input }) => {
+        const data = await db.getCertificatesByCompany(input.companyId);
+        const csv = addBOM(generateCertificatesCSV(data as any));
+        return { csv, filename: `certificates_${input.companyId}_${Date.now()}.csv` };
       }),
   }),
 });

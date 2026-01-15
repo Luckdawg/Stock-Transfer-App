@@ -225,3 +225,20 @@
 - [x] Show company-specific statistics
 - [x] Persist selected company in session
 - [x] Enable switching between companies
+
+## Phase 7 - CSV/Excel Export
+
+### Export API Endpoints
+- [x] Create export utility for CSV generation
+- [x] Shareholder list export endpoint
+- [x] Transaction history export endpoint
+- [x] Holdings data export endpoint
+- [x] Certificates export endpoint
+
+### Export UI Components
+- [x] Export button component with format selection
+- [x] Add export to Recordkeeping page (shareholders, certificates)
+- [x] Add export to Transactions page
+- [x] Add export to Analytics page (holdings)
+- [x] Loading state during export generation
+- [x] Download file handling

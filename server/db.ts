@@ -475,3 +475,15 @@ export async function getDashboardStats(companyId: number) {
     complianceScore,
   };
 }
+
+// ============================================
+// EXPORT QUERIES (for CSV/Excel export)
+// ============================================
+export async function getHoldingsByCompany(companyId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(holdings)
+    .innerJoin(shareholders, eq(holdings.shareholderId, shareholders.id))
+    .where(eq(shareholders.companyId, companyId))
+    .orderBy(desc(holdings.createdAt));
+}

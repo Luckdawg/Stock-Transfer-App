@@ -48,6 +48,7 @@ import {
   DRSRequestViewDialog
 } from "@/components/dialogs";
 import { BulkActionToolbar } from "@/components/BulkActionToolbar";
+import { MultiExportButton } from "@/components/ExportButton";
 
 export default function Recordkeeping() {
   const [activeTab, setActiveTab] = useState<"certificates" | "book_entry" | "drs">("certificates");
@@ -134,6 +135,11 @@ export default function Recordkeeping() {
       toast.error(`Failed to update DRS requests: ${error.message}`);
     },
   });
+
+  // Export mutations
+  const exportShareholders = trpc.export.shareholders.useMutation();
+  const exportCertificates = trpc.export.certificates.useMutation();
+  const exportHoldings = trpc.export.holdings.useMutation();
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -384,6 +390,23 @@ export default function Recordkeeping() {
                   <Filter className="w-4 h-4 mr-2" />
                   Filter
                 </Button>
+                <MultiExportButton
+                  disabled={!selectedCompanyId}
+                  exports={[
+                    {
+                      label: "Export Shareholders",
+                      onExport: async () => exportShareholders.mutateAsync({ companyId: selectedCompanyId! }),
+                    },
+                    {
+                      label: "Export Certificates",
+                      onExport: async () => exportCertificates.mutateAsync({ companyId: selectedCompanyId! }),
+                    },
+                    {
+                      label: "Export Holdings",
+                      onExport: async () => exportHoldings.mutateAsync({ companyId: selectedCompanyId! }),
+                    },
+                  ]}
+                />
                 <Button className="bg-cyan-600 hover:bg-cyan-700" onClick={handleNewRecord}>
                   <Plus className="w-4 h-4 mr-2" />
                   New Record

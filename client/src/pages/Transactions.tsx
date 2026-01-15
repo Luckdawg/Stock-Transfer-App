@@ -58,6 +58,7 @@ import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { useSelectedCompany, CompanySelector } from "@/components/CompanySelector";
 import { NewTransactionDialog, TransactionViewDialog } from "@/components/dialogs";
+import { ExportButton } from "@/components/ExportButton";
 
 export default function Transactions() {
   const [activeTab, setActiveTab] = useState<"transactions" | "corporate_actions" | "rule_144">("transactions");
@@ -127,6 +128,9 @@ export default function Transactions() {
       toast.error(`Failed to delete transaction: ${error.message}`);
     },
   });
+
+  // Export mutation
+  const exportTransactions = trpc.export.transactions.useMutation();
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -337,6 +341,13 @@ export default function Transactions() {
                 <Button variant="outline" size="icon">
                   <Filter className="w-4 h-4" />
                 </Button>
+                {activeTab === "transactions" && (
+                  <ExportButton
+                    label="Export Transactions"
+                    disabled={!selectedCompanyId}
+                    onExport={async () => exportTransactions.mutateAsync({ companyId: selectedCompanyId! })}
+                  />
+                )}
                 <Button onClick={handleNewRecord} className="bg-[#1e3a5f]">
                   <Plus className="w-4 h-4 mr-2" />
                   {activeTab === "transactions" ? "New Transaction" : activeTab === "corporate_actions" ? "New Action" : "New Request"}
