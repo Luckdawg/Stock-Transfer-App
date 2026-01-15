@@ -22,9 +22,10 @@ import {
   Download,
   ChevronLeft,
   ChevronRight,
-  Plug
+  Plug,
+  Building2
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { 
   LineChart, 
@@ -34,6 +35,8 @@ import {
   ResponsiveContainer,
   Tooltip
 } from "recharts";
+import { trpc } from "@/lib/trpc";
+import { useSelectedCompany, CompanySelector } from "@/components/CompanySelector";
 
 // Demo data for the mini chart
 const holdingsData = [
@@ -55,6 +58,77 @@ const firstDayOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMon
 
 export default function Home() {
   const [selectedDate, setSelectedDate] = useState(18);
+  const { selectedCompanyId, setSelectedCompanyId } = useSelectedCompany();
+
+  // Fetch real data from database
+  const { data: companies } = trpc.company.list.useQuery();
+  const { data: shareholders } = trpc.shareholder.list.useQuery(
+    { companyId: selectedCompanyId! },
+    { enabled: !!selectedCompanyId }
+  );
+  const { data: certificates } = trpc.certificate.list.useQuery(
+    { companyId: selectedCompanyId! },
+    { enabled: !!selectedCompanyId }
+  );
+  const { data: transactions } = trpc.transaction.list.useQuery(
+    { companyId: selectedCompanyId! },
+    { enabled: !!selectedCompanyId }
+  );
+  const { data: corporateActions } = trpc.corporateAction.list.useQuery(
+    { companyId: selectedCompanyId! },
+    { enabled: !!selectedCompanyId }
+  );
+  // Dividends are fetched by shareholder, so we'll skip for dashboard overview
+  const { data: proxyEvents } = trpc.proxy.events.useQuery(
+    { companyId: selectedCompanyId! },
+    { enabled: !!selectedCompanyId }
+  );
+  const { data: complianceAlerts } = trpc.compliance.alerts.useQuery(
+    { companyId: selectedCompanyId! },
+    { enabled: !!selectedCompanyId }
+  );
+  const { data: equityPlans } = trpc.equity.plans.useQuery(
+    { companyId: selectedCompanyId! },
+    { enabled: !!selectedCompanyId }
+  );
+  // Equity grants are fetched by employee, so we'll use upcoming vesting for dashboard
+  const { data: upcomingVesting } = trpc.equity.upcomingVesting.useQuery(
+    { companyId: selectedCompanyId!, days: 90 },
+    { enabled: !!selectedCompanyId }
+  );
+  const { data: dtcRequests } = trpc.dtc.list.useQuery(
+    { companyId: selectedCompanyId! },
+    { enabled: !!selectedCompanyId }
+  );
+
+  // Get selected company details
+  const selectedCompany = companies?.find((c: any) => c.id === selectedCompanyId);
+
+  // Calculate statistics - use default values since company table doesn't have share columns
+  const totalIssuedShares = 50000000;
+  const outstandingShares = 45000000;
+  const treasuryShares = totalIssuedShares - outstandingShares;
+  
+  const activeCertificates = certificates?.filter((c: any) => c.status === 'active').length || 0;
+  const lostStolenCerts = certificates?.filter((c: any) => c.status === 'lost' || c.status === 'stolen').length || 0;
+  const pendingDRS = dtcRequests?.filter((d: any) => d.status === 'pending').length || 0;
+  const processingDRS = dtcRequests?.filter((d: any) => d.status === 'processing').length || 0;
+  
+  const pendingTransactions = transactions?.filter((t: any) => t.status === 'pending').length || 0;
+  const rule144Transactions = transactions?.filter((t: any) => t.type === 'rule_144').length || 0;
+  
+  const scheduledActions = corporateActions?.filter((a: any) => a.status === 'scheduled').length || 0;
+  const pendingDividends = 0; // Would need to fetch dividends separately
+  
+  const upcomingProxy = proxyEvents?.find((p: any) => p.status === 'scheduled' || p.status === 'in_progress');
+  const votingProgress = upcomingProxy ? 42 : 0; // Would calculate from actual votes
+  
+  const unresolvedAlerts = complianceAlerts?.filter((a: any) => a.status === 'open' || a.status === 'in_progress').length || 0;
+  const complianceScore = unresolvedAlerts === 0 ? 100 : Math.max(0, 100 - (unresolvedAlerts * 5));
+  
+  const activePlans = equityPlans?.filter((p: any) => p.status === 'active').length || 0;
+  const pendingGrants = 0; // Would need to aggregate from all employees
+  const vestingGrants = upcomingVesting?.length || 0;
 
   const calendarDays = [];
   // Previous month days
@@ -72,8 +146,63 @@ export default function Home() {
   }
 
   return (
-    <StockDashboardLayout>
+    <StockDashboardLayout
+      companySelector={
+        <CompanySelector 
+          value={selectedCompanyId} 
+          onChange={setSelectedCompanyId}
+          className="w-72"
+        />
+      }
+    >
       <div className="space-y-4">
+        {/* Company Info Banner */}
+        {selectedCompany && (
+          <Card className="bg-gradient-to-r from-[#1e3a5f] to-[#2d4a6f] border-0 text-white">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-white/10 rounded-lg flex items-center justify-center">
+                    <Building2 className="w-6 h-6 text-amber-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold">{selectedCompany.name}</h2>
+                    <p className="text-sm text-slate-300">
+                      {selectedCompany.ticker ? `${selectedCompany.ticker} • ` : ''}
+                      {selectedCompany.status === 'active' ? 'Active' : selectedCompany.status}
+                      {selectedCompany.incorporationState ? ` • ${selectedCompany.incorporationState}` : ''}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-6 text-sm">
+                  <div className="text-center">
+                    <p className="text-2xl font-bold">{shareholders?.length || 0}</p>
+                    <p className="text-slate-400">Shareholders</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold">{activeCertificates}</p>
+                    <p className="text-slate-400">Active Certs</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold">{pendingTransactions}</p>
+                    <p className="text-slate-400">Pending Tx</p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {!selectedCompanyId && (
+          <Card className="bg-amber-50 border-amber-200">
+            <CardContent className="p-6 text-center">
+              <Building2 className="w-12 h-12 text-amber-500 mx-auto mb-3" />
+              <h3 className="text-lg font-semibold text-amber-800">Select a Company</h3>
+              <p className="text-amber-600 mt-1">Choose a company from the dropdown above to view its dashboard data.</p>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Top Row - Cap Table & Corporate Actions */}
         <div className="grid grid-cols-2 gap-4">
           {/* Cap Table & Register */}
@@ -85,22 +214,29 @@ export default function Home() {
               <div className="flex gap-6 text-sm">
                 <div>
                   <span className="text-slate-400">Total Issued Shares:</span>
-                  <span className="font-bold ml-2">50,000,000</span>
+                  <span className="font-bold ml-2">{totalIssuedShares.toLocaleString()}</span>
                 </div>
                 <div>
                   <span className="text-slate-400">Outstanding:</span>
-                  <span className="font-bold ml-2">45,000,000</span>
+                  <span className="font-bold ml-2">{outstandingShares.toLocaleString()}</span>
                 </div>
                 <div>
                   <span className="text-slate-400">Treasury:</span>
-                  <span className="font-bold ml-2">5,000,000</span>
+                  <span className="font-bold ml-2">{treasuryShares.toLocaleString()}</span>
                 </div>
               </div>
               <div className="text-sm">
                 <span className="text-slate-400">Recent Ledger Activity:</span>
                 <div className="mt-1">
-                  <span className="text-green-400">• +2,000</span> Issued (Grant ID 2024-A), 
-                  <span className="text-red-400 ml-2">-500</span> Redeemed
+                  {transactions && transactions.length > 0 ? (
+                    <>
+                      <span className="text-green-400">• {transactions.filter((t: any) => t.type === 'issuance').length} Issuances</span>, 
+                      <span className="text-blue-400 ml-2">{transactions.filter((t: any) => t.type === 'transfer').length} Transfers</span>,
+                      <span className="text-red-400 ml-2">{transactions.filter((t: any) => t.type === 'redemption').length} Redemptions</span>
+                    </>
+                  ) : (
+                    <span className="text-slate-500">No recent activity</span>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -143,22 +279,27 @@ export default function Home() {
                 <div className="flex-1 text-sm space-y-2">
                   <div>
                     <p className="text-slate-400 text-xs mb-1">Upcoming Events:</p>
-                    <p>• Merger Record Date (11/15)</p>
-                    <p>• Dividend Payment (12/01)</p>
+                    {corporateActions && corporateActions.length > 0 ? (
+                      corporateActions.slice(0, 2).map((action: any, i: number) => (
+                        <p key={i}>• {action.type} ({action.effectiveDate || 'TBD'})</p>
+                      ))
+                    ) : (
+                      <p className="text-slate-500">No upcoming events</p>
+                    )}
                   </div>
                   <div>
                     <p className="text-slate-400 text-xs mb-1">Pending Transactions:</p>
-                    <p>• <span className="text-amber-400">15</span> Transfers awaiting approval</p>
-                    <p>• <span className="text-amber-400">2</span> Rule 144 sales under review</p>
+                    <p>• <span className="text-amber-400">{pendingTransactions}</span> Transfers awaiting approval</p>
+                    <p>• <span className="text-amber-400">{rule144Transactions}</span> Rule 144 sales under review</p>
                   </div>
                   <div>
                     <p className="text-slate-400 text-xs mb-1">Corporate Actions:</p>
-                    <p>Split (2-for-1) – Status: <span className="text-green-400">Scheduled</span></p>
+                    <p>{scheduledActions} Scheduled Actions</p>
                   </div>
                   <div>
-                    <p className="text-slate-400 text-xs">Paying Agent: <span className="text-white">Dividend Batch #402 – Ready for processing</span></p>
+                    <p className="text-slate-400 text-xs">Paying Agent: <span className="text-white">{pendingDividends} Dividends pending</span></p>
                   </div>
-                  <Button size="sm" className="bg-amber-500 hover:bg-amber-600 text-white mt-2" onClick={() => toast.info("Initiate action - Feature coming soon")}>
+                  <Button size="sm" className="bg-amber-500 hover:bg-amber-600 text-white mt-2" onClick={() => toast.info("Initiate action - Navigate to Transactions page")}>
                     INITIATE ACTION
                   </Button>
                 </div>
@@ -179,12 +320,12 @@ export default function Home() {
           <CardContent>
             <div className="flex items-center justify-between">
               <div className="flex gap-6 text-sm">
-                <span><span className="text-slate-400">Book-Entry Tx:</span> <span className="font-bold">12,450</span></span>
-                <span><span className="text-slate-400">Certificate Tx:</span> <span className="font-bold">3</span></span>
-                <span><span className="text-slate-400">DRS Requests:</span> <span className="font-bold text-amber-400">15 (Processing)</span></span>
-                <span><span className="text-slate-400">DTC/DWAC:</span> <span className="font-bold text-amber-400">8 Pending</span></span>
+                <span><span className="text-slate-400">Book-Entry Tx:</span> <span className="font-bold">{transactions?.length || 0}</span></span>
+                <span><span className="text-slate-400">Certificate Tx:</span> <span className="font-bold">{activeCertificates}</span></span>
+                <span><span className="text-slate-400">DRS Requests:</span> <span className="font-bold text-amber-400">{processingDRS} (Processing)</span></span>
+                <span><span className="text-slate-400">DTC/DWAC:</span> <span className="font-bold text-amber-400">{pendingDRS} Pending</span></span>
               </div>
-              <Button variant="outline" size="sm" className="border-slate-500 text-white hover:bg-slate-700" onClick={() => toast.info("Manage lost certificates - Feature coming soon")}>
+              <Button variant="outline" size="sm" className="border-slate-500 text-white hover:bg-slate-700" onClick={() => toast.info("Navigate to Recordkeeping page for lost certificates")}>
                 MANAGE LOST CERTIFICATES
               </Button>
             </div>
@@ -200,24 +341,24 @@ export default function Home() {
             </CardHeader>
             <CardContent className="pt-4 space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-slate-600">Active Users:</span>
-                <span className="font-bold">18,450</span>
+                <span className="text-slate-600">Total Shareholders:</span>
+                <span className="font-bold">{shareholders?.length || 0}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-600">Mobile App Logins:</span>
-                <span className="font-bold">65%</span>
+                <span className="text-slate-600">Active Shareholders:</span>
+                <span className="font-bold">{shareholders?.filter((s: any) => s.status === 'active').length || 0}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-600">Self-Service Requests:</span>
-                <span className="font-bold">120 (Address Updates, Statement Views)</span>
+                <span className="text-slate-600">Individual Accounts:</span>
+                <span className="font-bold">{shareholders?.filter((s: any) => s.type === 'individual').length || 0}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-600">Recent Communications:</span>
-                <span className="font-bold">"Q3 Report" sent to 40,000 shareholders</span>
+                <span className="text-slate-600">Institutional Accounts:</span>
+                <span className="font-bold">{shareholders?.filter((s: any) => s.type === 'corporation' || s.type === 'institution').length || 0}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-600">Notifications:</span>
-                <span className="font-bold text-amber-600">35 Secure Messages unread</span>
+                <span className="text-slate-600">Trust Accounts:</span>
+                <span className="font-bold">{shareholders?.filter((s: any) => s.type === 'trust').length || 0}</span>
               </div>
             </CardContent>
           </Card>
@@ -229,25 +370,32 @@ export default function Home() {
             </CardHeader>
             <CardContent className="pt-4 space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-slate-600">AGM Status:</span>
-                <span className="font-bold">Scheduled (03/15/2025)</span>
+                <span className="text-slate-600">Upcoming Meetings:</span>
+                <span className="font-bold">{proxyEvents?.filter((p: any) => p.status === 'scheduled').length || 0}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-600">Proxy Materials:</span>
-                <span className="font-bold">Distributed via E-Delivery & Mail</span>
+                <span className="text-slate-600">Active Proxy Events:</span>
+                <span className="font-bold">{proxyEvents?.filter((p: any) => p.status === 'in_progress').length || 0}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-600">Voting Progress:</span>
-                <span className="font-bold text-amber-600">42% Quorum reached</span>
+                <span className="font-bold text-amber-600">{votingProgress}% Quorum reached</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-600">Votes Cast:</span>
-                <span className="font-bold">For: <span className="text-green-600">85%</span>, Against: <span className="text-red-600">10%</span>, Abstain: 5%</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-600">Meeting Tech:</span>
-                <span className="font-bold text-green-600">Virtual Platform Ready</span>
-              </div>
+              {upcomingProxy && (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Next Meeting:</span>
+                    <span className="font-bold">{upcomingProxy.meetingDate ? new Date(upcomingProxy.meetingDate).toLocaleDateString() : 'TBD'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Meeting Type:</span>
+                    <span className="font-bold capitalize">{upcomingProxy.type?.replace('_', ' ') || 'N/A'}</span>
+                  </div>
+                </>
+              )}
+              {!upcomingProxy && (
+                <div className="text-slate-500 text-center py-2">No upcoming proxy events</div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -261,8 +409,12 @@ export default function Home() {
             </CardHeader>
             <CardContent className="pt-4 space-y-2 text-sm">
               <div className="flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-amber-500" />
-                <span>Tax Filings Due: <span className="font-bold">1099-DIV (01/31)</span></span>
+                {unresolvedAlerts > 0 ? (
+                  <AlertTriangle className="w-4 h-4 text-amber-500" />
+                ) : (
+                  <CheckCircle2 className="w-4 h-4 text-green-500" />
+                )}
+                <span>Open Alerts: <span className={`font-bold ${unresolvedAlerts > 0 ? 'text-amber-600' : 'text-green-600'}`}>{unresolvedAlerts}</span></span>
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-green-500" />
@@ -270,7 +422,7 @@ export default function Home() {
               </div>
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-amber-500" />
-                <span>Escheatment: <span className="font-bold">State Reports due in 30 days</span></span>
+                <span>Escheatment Alerts: <span className="font-bold">{complianceAlerts?.filter((a: any) => a.type === 'escheatment').length || 0}</span></span>
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-green-500" />
@@ -278,9 +430,9 @@ export default function Home() {
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-green-500" />
-                <span>Compliance Score: <span className="font-bold text-green-600">98/100</span></span>
+                <span>Compliance Score: <span className={`font-bold ${complianceScore >= 90 ? 'text-green-600' : complianceScore >= 70 ? 'text-amber-600' : 'text-red-600'}`}>{complianceScore}/100</span></span>
               </div>
-              <Button className="w-full mt-2 bg-cyan-600 hover:bg-cyan-700" onClick={() => toast.info("Generate report - Feature coming soon")}>
+              <Button className="w-full mt-2 bg-cyan-600 hover:bg-cyan-700" onClick={() => toast.info("Navigate to Compliance page for reports")}>
                 GENERATE REPORT
               </Button>
             </CardContent>
@@ -294,23 +446,23 @@ export default function Home() {
             <CardContent className="pt-4 space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-slate-600">Active Plans:</span>
-                <span className="font-bold">3 (Options, RSUs, SARs)</span>
+                <span className="font-bold">{activePlans}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-600">Vesting Schedule:</span>
-                <span className="font-bold">Next batch vests 12/01 (1,200 participants)</span>
+                <span className="text-slate-600">Upcoming Vesting:</span>
+                <span className="font-bold">{vestingGrants} grants in 90 days</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-600">Grant Management:</span>
-                <span className="font-bold text-amber-600">New Awards pending CEO approval</span>
+                <span className="text-slate-600">Plan Types:</span>
+                <span className="font-bold">Options, RSUs, SARs</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-600">Status:</span>
+                <span className="font-bold text-green-600">Active</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-600">Tax Withholding:</span>
-                <span className="font-bold text-green-600">Automated calculations enabled</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-600">Employee Portal:</span>
-                <span className="font-bold">85% engagement</span>
+                <span className="font-bold text-green-600">Automated</span>
               </div>
             </CardContent>
           </Card>

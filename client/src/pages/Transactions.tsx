@@ -17,6 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -25,6 +26,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { 
   ArrowRightLeft, 
@@ -39,19 +50,24 @@ import {
   TrendingDown,
   FileText,
   Calendar,
-  Eye
+  Eye,
+  Trash2
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { useSelectedCompany, CompanySelector } from "@/components/CompanySelector";
-import { NewTransactionDialog } from "@/components/dialogs";
+import { NewTransactionDialog, TransactionViewDialog } from "@/components/dialogs";
 
 export default function Transactions() {
   const [activeTab, setActiveTab] = useState<"transactions" | "corporate_actions" | "rule_144">("transactions");
   const [searchTerm, setSearchTerm] = useState("");
   const [showNewTransactionDialog, setShowNewTransactionDialog] = useState(false);
   const [showCorporateActionDialog, setShowCorporateActionDialog] = useState(false);
+  const [showTransactionViewDialog, setShowTransactionViewDialog] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [transactionToDelete, setTransactionToDelete] = useState<any>(null);
   const [corporateActionForm, setCorporateActionForm] = useState({
     type: "dividend_cash" as "dividend_cash" | "dividend_stock" | "split" | "reverse_split" | "merger" | "acquisition" | "spin_off" | "rights_offering" | "tender_offer" | "consolidation" | "name_change" | "symbol_change",
     title: "",
@@ -87,6 +103,28 @@ export default function Transactions() {
     },
     onError: (error) => {
       toast.error(`Failed to create corporate action: ${error.message}`);
+    },
+  });
+
+  const approveTransaction = trpc.transaction.approve.useMutation({
+    onSuccess: () => {
+      toast.success("Transaction approved successfully");
+      refetchTransactions();
+    },
+    onError: (error) => {
+      toast.error(`Failed to approve transaction: ${error.message}`);
+    },
+  });
+
+  const deleteTransaction = trpc.transaction.delete.useMutation({
+    onSuccess: () => {
+      toast.success("Transaction deleted successfully");
+      setShowDeleteConfirm(false);
+      setTransactionToDelete(null);
+      refetchTransactions();
+    },
+    onError: (error) => {
+      toast.error(`Failed to delete transaction: ${error.message}`);
     },
   });
 
@@ -144,6 +182,22 @@ export default function Transactions() {
       setShowCorporateActionDialog(true);
     } else {
       toast.info("Rule 144 request - Feature coming soon");
+    }
+  };
+
+  const handleViewTransaction = (tx: any) => {
+    setSelectedTransaction(tx);
+    setShowTransactionViewDialog(true);
+  };
+
+  const handleDeleteTransaction = (tx: any) => {
+    setTransactionToDelete(tx);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDeleteTransaction = () => {
+    if (transactionToDelete) {
+      deleteTransaction.mutate({ id: transactionToDelete.id });
     }
   };
 
@@ -258,7 +312,7 @@ export default function Transactions() {
                   onClick={() => setActiveTab("corporate_actions")}
                   className={activeTab === "corporate_actions" ? "bg-[#1e3a5f]" : ""}
                 >
-                  <Calendar className="w-4 h-4 mr-2" />
+                  <FileText className="w-4 h-4 mr-2" />
                   Corporate Actions
                 </Button>
                 <Button 
@@ -266,25 +320,24 @@ export default function Transactions() {
                   onClick={() => setActiveTab("rule_144")}
                   className={activeTab === "rule_144" ? "bg-[#1e3a5f]" : ""}
                 >
-                  <FileText className="w-4 h-4 mr-2" />
-                  Rule 144 Sales
+                  <AlertTriangle className="w-4 h-4 mr-2" />
+                  Rule 144
                 </Button>
               </div>
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2">
                 <div className="relative">
-                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <Input 
-                    placeholder="Search..." 
-                    className="pl-9 w-64"
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Input
+                    placeholder="Search..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-9 w-64"
                   />
                 </div>
-                <Button variant="outline" onClick={() => toast.info("Filter feature coming soon")}>
-                  <Filter className="w-4 h-4 mr-2" />
-                  Filter
+                <Button variant="outline" size="icon">
+                  <Filter className="w-4 h-4" />
                 </Button>
-                <Button className="bg-cyan-600 hover:bg-cyan-700" onClick={handleNewRecord}>
+                <Button onClick={handleNewRecord} className="bg-[#1e3a5f]">
                   <Plus className="w-4 h-4 mr-2" />
                   {activeTab === "transactions" ? "New Transaction" : activeTab === "corporate_actions" ? "New Action" : "New Request"}
                 </Button>
@@ -330,11 +383,11 @@ export default function Transactions() {
                         <TableCell>{tx.transactionDate || '-'}</TableCell>
                         <TableCell>{getStatusBadge(tx.status)}</TableCell>
                         <TableCell>
-                          <div className="flex gap-2">
+                          <div className="flex gap-1">
                             <Button 
                               variant="ghost" 
                               size="sm"
-                              onClick={() => toast.info("View transaction - Feature coming soon")}
+                              onClick={() => handleViewTransaction(tx)}
                             >
                               <Eye className="w-4 h-4 mr-1" />
                               View
@@ -344,11 +397,19 @@ export default function Transactions() {
                                 variant="ghost" 
                                 size="sm" 
                                 className="text-green-600"
-                                onClick={() => toast.info("Approve transaction - Feature coming soon")}
+                                onClick={() => approveTransaction.mutate({ id: tx.id })}
                               >
                                 Approve
                               </Button>
                             )}
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="text-red-600"
+                              onClick={() => handleDeleteTransaction(tx)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -419,53 +480,75 @@ export default function Transactions() {
             )}
 
             {activeTab === "rule_144" && (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Holder</TableHead>
-                    <TableHead>Shares Requested</TableHead>
-                    <TableHead>Holding Period</TableHead>
-                    <TableHead>Volume Limit</TableHead>
-                    <TableHead>Request Date</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-slate-500">
-                      Rule 144 sales tracking - Feature coming soon
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
+              <div className="p-8 text-center text-slate-500">
+                <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-slate-300" />
+                <p className="text-lg font-medium">Rule 144 Requests</p>
+                <p className="text-sm">Track restricted stock sales and compliance with SEC Rule 144</p>
+                <Button className="mt-4 bg-[#1e3a5f]" onClick={handleNewRecord}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  New Rule 144 Request
+                </Button>
+              </div>
             )}
           </CardContent>
         </Card>
       </div>
 
       {/* New Transaction Dialog */}
-      {selectedCompanyId && (
-        <NewTransactionDialog
-          open={showNewTransactionDialog}
-          onOpenChange={setShowNewTransactionDialog}
-          companyId={selectedCompanyId}
-          onSuccess={() => refetchTransactions()}
+      <NewTransactionDialog
+        open={showNewTransactionDialog}
+        onOpenChange={setShowNewTransactionDialog}
+        companyId={selectedCompanyId || 0}
+        onSuccess={() => refetchTransactions()}
+      />
+
+      {/* Transaction View Dialog */}
+      {selectedTransaction && (
+        <TransactionViewDialog
+          open={showTransactionViewDialog}
+          onOpenChange={setShowTransactionViewDialog}
+          transaction={selectedTransaction}
+          companyId={selectedCompanyId || 0}
         />
       )}
 
-      {/* New Corporate Action Dialog */}
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Transaction</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete transaction {transactionToDelete?.transactionNumber}? 
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDeleteTransaction}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Corporate Action Dialog */}
       <Dialog open={showCorporateActionDialog} onOpenChange={setShowCorporateActionDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>New Corporate Action</DialogTitle>
+            <DialogDescription>
+              Create a new corporate action for the selected company.
+            </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Type *</Label>
+              <Label>Action Type</Label>
               <Select
                 value={corporateActionForm.type}
-                onValueChange={(value: any) => setCorporateActionForm({ ...corporateActionForm, type: value })}
+                onValueChange={(value: any) => setCorporateActionForm(prev => ({ ...prev, type: value }))}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -477,10 +560,12 @@ export default function Transactions() {
                   <SelectItem value="reverse_split">Reverse Split</SelectItem>
                   <SelectItem value="merger">Merger</SelectItem>
                   <SelectItem value="acquisition">Acquisition</SelectItem>
-                  <SelectItem value="spin_off">Spin-off</SelectItem>
+                  <SelectItem value="spin_off">Spin-Off</SelectItem>
                   <SelectItem value="rights_offering">Rights Offering</SelectItem>
                   <SelectItem value="tender_offer">Tender Offer</SelectItem>
                   <SelectItem value="consolidation">Consolidation</SelectItem>
+                  <SelectItem value="name_change">Name Change</SelectItem>
+                  <SelectItem value="symbol_change">Symbol Change</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -488,15 +573,15 @@ export default function Transactions() {
               <Label>Title *</Label>
               <Input
                 value={corporateActionForm.title}
-                onChange={(e) => setCorporateActionForm({ ...corporateActionForm, title: e.target.value })}
-                placeholder="e.g., Q4 2024 Dividend"
+                onChange={(e) => setCorporateActionForm(prev => ({ ...prev, title: e.target.value }))}
+                placeholder="e.g., Q4 2024 Cash Dividend"
               />
             </div>
             <div className="space-y-2">
               <Label>Description</Label>
               <Input
                 value={corporateActionForm.description}
-                onChange={(e) => setCorporateActionForm({ ...corporateActionForm, description: e.target.value })}
+                onChange={(e) => setCorporateActionForm(prev => ({ ...prev, description: e.target.value }))}
                 placeholder="Optional description"
               />
             </div>
@@ -506,7 +591,7 @@ export default function Transactions() {
                 <Input
                   type="date"
                   value={corporateActionForm.recordDate}
-                  onChange={(e) => setCorporateActionForm({ ...corporateActionForm, recordDate: e.target.value })}
+                  onChange={(e) => setCorporateActionForm(prev => ({ ...prev, recordDate: e.target.value }))}
                 />
               </div>
               <div className="space-y-2">
@@ -514,7 +599,7 @@ export default function Transactions() {
                 <Input
                   type="date"
                   value={corporateActionForm.effectiveDate}
-                  onChange={(e) => setCorporateActionForm({ ...corporateActionForm, effectiveDate: e.target.value })}
+                  onChange={(e) => setCorporateActionForm(prev => ({ ...prev, effectiveDate: e.target.value }))}
                 />
               </div>
             </div>
@@ -526,6 +611,7 @@ export default function Transactions() {
             <Button 
               onClick={handleSubmitCorporateAction}
               disabled={createCorporateAction.isPending}
+              className="bg-[#1e3a5f]"
             >
               {createCorporateAction.isPending ? "Creating..." : "Create Action"}
             </Button>

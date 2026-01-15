@@ -23,8 +23,19 @@ import {
   AlertTriangle,
   RefreshCw,
   Printer,
-  Eye
+  Eye,
+  Trash2
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useState } from "react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
@@ -49,6 +60,8 @@ export default function Recordkeeping() {
   const [selectedShareholderId, setSelectedShareholderId] = useState<number | null>(null);
   const [selectedCertificate, setSelectedCertificate] = useState<any>(null);
   const [selectedDRSRequest, setSelectedDRSRequest] = useState<any>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [shareholderToDelete, setShareholderToDelete] = useState<any>(null);
   const { selectedCompanyId, setSelectedCompanyId } = useSelectedCompany();
   
   // Bulk selection state
@@ -71,6 +84,18 @@ export default function Recordkeeping() {
     { companyId: selectedCompanyId! },
     { enabled: !!selectedCompanyId }
   );
+
+  const deleteShareholder = trpc.shareholder.delete.useMutation({
+    onSuccess: () => {
+      toast.success("Shareholder deleted successfully");
+      setShowDeleteConfirm(false);
+      setShareholderToDelete(null);
+      refetchShareholders();
+    },
+    onError: (error) => {
+      toast.error(`Failed to delete shareholder: ${error.message}`);
+    },
+  });
 
   const generateCertificatePdf = trpc.pdf.generateCertificate.useMutation({
     onSuccess: (data) => {
@@ -158,6 +183,17 @@ export default function Recordkeeping() {
   const handleViewShareholder = (shareholderId: number) => {
     setSelectedShareholderId(shareholderId);
     setShowShareholderViewDialog(true);
+  };
+
+  const handleDeleteShareholder = (shareholder: any) => {
+    setShareholderToDelete(shareholder);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDeleteShareholder = () => {
+    if (shareholderToDelete) {
+      deleteShareholder.mutate({ id: shareholderToDelete.id });
+    }
   };
 
   const handleViewCertificate = (certificate: any) => {
@@ -467,14 +503,24 @@ export default function Recordkeeping() {
                         <TableCell>{sh.email || '-'}</TableCell>
                         <TableCell>{getStatusBadge(sh.status)}</TableCell>
                         <TableCell>
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => handleViewShareholder(sh.id)}
-                          >
-                            <Eye className="w-4 h-4 mr-1" />
-                            View
-                          </Button>
+                          <div className="flex gap-1">
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => handleViewShareholder(sh.id)}
+                            >
+                              <Eye className="w-4 h-4 mr-1" />
+                              View
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              className="text-red-600"
+                              onClick={() => handleDeleteShareholder(sh)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
@@ -615,6 +661,28 @@ export default function Recordkeeping() {
         drsRequest={selectedDRSRequest}
         companyId={selectedCompanyId!}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Shareholder</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {shareholderToDelete?.name}? 
+              This action cannot be undone. Note: Shareholders with active holdings cannot be deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDeleteShareholder}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </StockDashboardLayout>
   );
 }

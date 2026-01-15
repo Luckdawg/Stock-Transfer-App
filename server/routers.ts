@@ -70,6 +70,35 @@ export const appRouter = router({
         });
         return { id: result[0].insertId };
       }),
+    
+    delete: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const database = await getDb();
+        if (!database) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' });
+        
+        // Check if company has shareholders
+        const companyShareholders = await db.getShareholdersByCompany(input.id);
+        if (companyShareholders && companyShareholders.length > 0) {
+          throw new TRPCError({ 
+            code: 'BAD_REQUEST', 
+            message: 'Cannot delete company with existing shareholders. Remove all shareholders first.' 
+          });
+        }
+        
+        await database.delete(companies).where(eq(companies.id, input.id));
+        
+        await db.createAuditEntry({
+          userId: ctx.user.id,
+          companyId: input.id,
+          action: 'DELETE',
+          entityType: 'company',
+          entityId: input.id,
+          oldValues: { id: input.id },
+        });
+        
+        return { success: true };
+      }),
   }),
 
   // ============================================
@@ -212,6 +241,38 @@ export const appRouter = router({
         await database.update(shareholders).set(filteredData).where(eq(shareholders.id, id));
         return { success: true };
       }),
+    
+    delete: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const database = await getDb();
+        if (!database) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' });
+        
+        // Check if shareholder has any holdings
+        const shareholderHoldings = await db.getHoldingsByShareholder(input.id);
+        if (shareholderHoldings && shareholderHoldings.length > 0) {
+          const totalShares = shareholderHoldings.reduce((sum: number, h: any) => sum + (h.shares || 0), 0);
+          if (totalShares > 0) {
+            throw new TRPCError({ 
+              code: 'BAD_REQUEST', 
+              message: 'Cannot delete shareholder with active holdings. Transfer or cancel shares first.' 
+            });
+          }
+        }
+        
+        await database.delete(shareholders).where(eq(shareholders.id, input.id));
+        
+        await db.createAuditEntry({
+          userId: ctx.user.id,
+          companyId: 0,
+          action: 'DELETE',
+          entityType: 'shareholder',
+          entityId: input.id,
+          oldValues: { id: input.id },
+        });
+        
+        return { success: true };
+      }),
   }),
 
   // ============================================
@@ -334,6 +395,26 @@ export const appRouter = router({
         }
         
         return { success: true, count: rejected };
+      }),
+    
+    delete: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const database = await getDb();
+        if (!database) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' });
+        
+        await database.delete(transactions).where(eq(transactions.id, input.id));
+        
+        await db.createAuditEntry({
+          userId: ctx.user.id,
+          companyId: 0,
+          action: 'DELETE',
+          entityType: 'transaction',
+          entityId: input.id,
+          oldValues: { id: input.id },
+        });
+        
+        return { success: true };
       }),
   }),
 

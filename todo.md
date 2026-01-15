@@ -203,3 +203,25 @@
 - [x] Document list display in view dialogs
 - [x] Support for multiple file types (PDF, images, Word docs)
 - [x] File size validation and limits
+
+## Phase 6 - Bug Fixes and Delete Functionality
+
+### Bug Fixes
+- [x] Fix transaction detail view error
+- [x] Fix any related API endpoint issues
+
+### Delete Functionality
+- [x] Add delete shareholder API endpoint
+- [x] Add delete company API endpoint
+- [x] Add delete transaction API endpoint
+- [x] Add delete confirmation dialogs
+- [x] Add delete buttons to shareholder view dialog
+- [x] Add delete buttons to company management
+- [x] Add delete buttons to transaction view dialog
+
+### Dashboard Company Selection
+- [x] Add company selector dropdown on dashboard
+- [x] Filter all dashboard cards by selected company
+- [x] Show company-specific statistics
+- [x] Persist selected company in session
+- [x] Enable switching between companies
