@@ -23,7 +23,7 @@ import { getLoginUrl } from "@/const";
 export default function AcceptInvitation() {
   const { token } = useParams<{ token: string }>();
   const [, setLocation] = useLocation();
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [acceptError, setAcceptError] = useState<string | null>(null);
 
   const { data: invitation, isLoading, error } = trpc.invitation.getByToken.useQuery(

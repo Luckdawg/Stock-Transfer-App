@@ -28,6 +28,8 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { trpc } from "@/lib/trpc";
+import { useSelectedCompany, CompanySelector } from "@/components/CompanySelector";
 
 // Demo data
 const equityPlans = [
@@ -53,6 +55,13 @@ const vestingEvents = [
 export default function EquityPlans() {
   const [activeTab, setActiveTab] = useState<"plans" | "grants" | "vesting">("plans");
   const [searchTerm, setSearchTerm] = useState("");
+  const { selectedCompanyId, setSelectedCompanyId } = useSelectedCompany();
+  
+  // Fetch real equity data
+  const { data: plans } = trpc.equity.plans.useQuery(
+    { companyId: selectedCompanyId! },
+    { enabled: !!selectedCompanyId }
+  );
 
   const getTypeBadge = (type: string) => {
     switch (type) {
@@ -87,7 +96,16 @@ export default function EquityPlans() {
   };
 
   return (
-    <StockDashboardLayout title="EQUITY PLAN ADMINISTRATION">
+    <StockDashboardLayout 
+      title="EQUITY PLAN ADMINISTRATION"
+      headerRight={
+        <CompanySelector
+          value={selectedCompanyId}
+          onChange={setSelectedCompanyId}
+          className="w-64"
+        />
+      }
+    >
       <div className="space-y-6">
         {/* Summary Cards */}
         <div className="grid grid-cols-4 gap-4">

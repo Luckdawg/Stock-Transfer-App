@@ -29,6 +29,8 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { trpc } from "@/lib/trpc";
+import { useSelectedCompany, CompanySelector } from "@/components/CompanySelector";
 
 // Demo data
 const shareholders = [
@@ -55,9 +57,25 @@ const communications = [
 export default function ShareholderPortal() {
   const [activeTab, setActiveTab] = useState<"shareholders" | "activity" | "communications">("shareholders");
   const [searchTerm, setSearchTerm] = useState("");
+  const { selectedCompanyId, setSelectedCompanyId } = useSelectedCompany();
+  
+  // Fetch real shareholder data
+  const { data: shareholdersData } = trpc.shareholder.list.useQuery(
+    { companyId: selectedCompanyId! },
+    { enabled: !!selectedCompanyId }
+  );
 
   return (
-    <StockDashboardLayout title="SHAREHOLDER PORTAL MANAGEMENT">
+    <StockDashboardLayout 
+      title="SHAREHOLDER PORTAL MANAGEMENT"
+      headerRight={
+        <CompanySelector
+          value={selectedCompanyId}
+          onChange={setSelectedCompanyId}
+          className="w-64"
+        />
+      }
+    >
       <div className="space-y-6">
         {/* Stats Cards */}
         <div className="grid grid-cols-4 gap-4">

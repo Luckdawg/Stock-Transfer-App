@@ -974,7 +974,10 @@ export default function Companies() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDeleteCompany}
+              onClick={(e) => {
+                e.preventDefault();
+                handleDeleteCompany();
+              }}
               className="bg-red-600 hover:bg-red-700"
             >
               {deleteCompany.isPending ? (

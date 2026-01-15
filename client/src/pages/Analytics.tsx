@@ -26,6 +26,8 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { trpc } from "@/lib/trpc";
+import { useSelectedCompany, CompanySelector } from "@/components/CompanySelector";
 import { 
   LineChart as RechartsLineChart, 
   Line, 
@@ -81,9 +83,19 @@ const topShareholders = [
 
 export default function Analytics() {
   const [activeTab, setActiveTab] = useState<"insights" | "integrations">("insights");
+  const { selectedCompanyId, setSelectedCompanyId } = useSelectedCompany();
 
   return (
-    <StockDashboardLayout title="ANALYTICS & INTEGRATIONS">
+    <StockDashboardLayout 
+      title="ANALYTICS & INTEGRATIONS"
+      headerRight={
+        <CompanySelector
+          value={selectedCompanyId}
+          onChange={setSelectedCompanyId}
+          className="w-64"
+        />
+      }
+    >
       <div className="space-y-6">
         {/* Summary Cards */}
         <div className="grid grid-cols-4 gap-4">

@@ -29,6 +29,8 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { trpc } from "@/lib/trpc";
+import { useSelectedCompany, CompanySelector } from "@/components/CompanySelector";
 
 // Demo data
 const taxFilings = [
@@ -59,6 +61,13 @@ const escheatmentReports = [
 
 export default function Compliance() {
   const [activeTab, setActiveTab] = useState<"overview" | "tax" | "audit" | "escheatment">("overview");
+  const { selectedCompanyId, setSelectedCompanyId } = useSelectedCompany();
+  
+  // Fetch real compliance data
+  const { data: alerts } = trpc.compliance.alerts.useQuery(
+    { companyId: selectedCompanyId! },
+    { enabled: !!selectedCompanyId }
+  );
 
   const getSeverityBadge = (severity: string) => {
     switch (severity) {
@@ -99,7 +108,16 @@ export default function Compliance() {
   };
 
   return (
-    <StockDashboardLayout title="COMPLIANCE & REPORTING">
+    <StockDashboardLayout 
+      title="COMPLIANCE & REPORTING"
+      headerRight={
+        <CompanySelector
+          value={selectedCompanyId}
+          onChange={setSelectedCompanyId}
+          className="w-64"
+        />
+      }
+    >
       <div className="space-y-6">
         {/* Compliance Score Card */}
         <Card className="bg-[#1e3a5f] border-0 text-white">

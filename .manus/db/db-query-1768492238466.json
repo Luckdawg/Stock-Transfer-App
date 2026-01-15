@@ -1,0 +1,62 @@
+{
+  "query": "SELECT id, name FROM companies LIMIT 10; SELECT id, companyId, name FROM shareholders LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2KQuguC66uRWakj.ac35fed03bae --database a7H2XSEj8BHv8rdYEi8SPZ --execute SELECT id, name FROM companies LIMIT 10; SELECT id, companyId, name FROM shareholders LIMIT 10;",
+  "rows": [
+    {
+      "id": "4",
+      "name": "TechVenture Holdings Inc."
+    },
+    {
+      "id": "5",
+      "name": "Global Manufacturing Corp."
+    },
+    {
+      "id": "6",
+      "name": "BioHealth Innovations Ltd."
+    },
+    {
+      "id": "7",
+      "name": "TechVenture Holdings Inc."
+    },
+    {
+      "id": "8",
+      "name": "Global Manufacturing Corp."
+    },
+    {
+      "id": "9",
+      "name": "BioHealth Innovations Ltd."
+    },
+    {
+      "id": "10",
+      "name": "TechVenture Holdings Inc."
+    },
+    {
+      "id": "11",
+      "name": "Global Manufacturing Corp."
+    },
+    {
+      "id": "12",
+      "name": "BioHealth Innovations Ltd."
+    },
+    {
+      "id": "13",
+      "name": "TechVenture Holdings Inc."
+    }
+  ],
+  "messages": [
+    "id\tcompanyId\tname",
+    "1\t4\tSequoia Capital Partners",
+    "2\t4\tJohn Mitchell",
+    "3\t4\tSarah Chen",
+    "4\t4\tBlackRock Fund Advisors",
+    "5\t4\tEmployee Stock Trust",
+    "6\t5\tVanguard Group Inc.",
+    "7\t5\tRobert Williams",
+    "8\t5\tManufacturing Workers Pension Fund",
+    "9\t6\tAndreessen Horowitz Bio Fund",
+    "10\t6\tDr. Emily Watson"
+  ],
+  "stdout": "id\tname\n4\tTechVenture Holdings Inc.\n5\tGlobal Manufacturing Corp.\n6\tBioHealth Innovations Ltd.\n7\tTechVenture Holdings Inc.\n8\tGlobal Manufacturing Corp.\n9\tBioHealth Innovations Ltd.\n10\tTechVenture Holdings Inc.\n11\tGlobal Manufacturing Corp.\n12\tBioHealth Innovations Ltd.\n13\tTechVenture Holdings Inc.\nid\tcompanyId\tname\n1\t4\tSequoia Capital Partners\n2\t4\tJohn Mitchell\n3\t4\tSarah Chen\n4\t4\tBlackRock Fund Advisors\n5\t4\tEmployee Stock Trust\n6\t5\tVanguard Group Inc.\n7\t5\tRobert Williams\n8\t5\tManufacturing Workers Pension Fund\n9\t6\tAndreessen Horowitz Bio Fund\n10\t6\tDr. Emily Watson\n",
+  "stderr": "",
+  "execution_time_ms": 74
+}

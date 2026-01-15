@@ -49,9 +49,10 @@ interface StockDashboardLayoutProps {
   children: ReactNode;
   title?: string;
   companySelector?: ReactNode;
+  headerRight?: ReactNode;
 }
 
-export default function StockDashboardLayout({ children, title, companySelector }: StockDashboardLayoutProps) {
+export default function StockDashboardLayout({ children, title, companySelector, headerRight }: StockDashboardLayoutProps) {
   const { user, loading, isAuthenticated, logout } = useAuth();
   const [location] = useLocation();
 
@@ -155,7 +156,7 @@ export default function StockDashboardLayout({ children, title, companySelector 
             </p>
           </div>
           <div className="flex items-center gap-4">
-            {companySelector}
+            {headerRight || companySelector}
             <Search className="w-5 h-5 text-slate-400 cursor-pointer hover:text-white" />
             <div className="relative">
               <Bell className="w-5 h-5 text-slate-400 cursor-pointer hover:text-white" />

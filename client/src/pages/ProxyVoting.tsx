@@ -30,6 +30,8 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { trpc } from "@/lib/trpc";
+import { useSelectedCompany, CompanySelector } from "@/components/CompanySelector";
 
 // Demo data
 const meetings = [
@@ -77,6 +79,13 @@ const proxyMaterials = [
 export default function ProxyVoting() {
   const [activeTab, setActiveTab] = useState<"meetings" | "proposals" | "materials">("meetings");
   const [selectedMeeting, setSelectedMeeting] = useState<number | null>(1);
+  const { selectedCompanyId, setSelectedCompanyId } = useSelectedCompany();
+  
+  // Fetch real proxy data
+  const { data: proxyEvents } = trpc.proxy.events.useQuery(
+    { companyId: selectedCompanyId! },
+    { enabled: !!selectedCompanyId }
+  );
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -100,7 +109,16 @@ export default function ProxyVoting() {
   const currentMeeting = meetings.find(m => m.id === selectedMeeting);
 
   return (
-    <StockDashboardLayout title="PROXY & MEETING MANAGEMENT">
+    <StockDashboardLayout 
+      title="PROXY & MEETING MANAGEMENT"
+      headerRight={
+        <CompanySelector
+          value={selectedCompanyId}
+          onChange={setSelectedCompanyId}
+          className="w-64"
+        />
+      }
+    >
       <div className="space-y-6">
         {/* Meeting Summary Card */}
         {currentMeeting && (

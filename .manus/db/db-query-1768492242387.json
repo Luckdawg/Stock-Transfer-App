@@ -1,0 +1,74 @@
+{
+  "query": "SELECT id, name FROM companies;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2KQuguC66uRWakj.ac35fed03bae --database a7H2XSEj8BHv8rdYEi8SPZ --execute SELECT id, name FROM companies;",
+  "rows": [
+    {
+      "id": "4",
+      "name": "TechVenture Holdings Inc."
+    },
+    {
+      "id": "5",
+      "name": "Global Manufacturing Corp."
+    },
+    {
+      "id": "6",
+      "name": "BioHealth Innovations Ltd."
+    },
+    {
+      "id": "7",
+      "name": "TechVenture Holdings Inc."
+    },
+    {
+      "id": "8",
+      "name": "Global Manufacturing Corp."
+    },
+    {
+      "id": "9",
+      "name": "BioHealth Innovations Ltd."
+    },
+    {
+      "id": "10",
+      "name": "TechVenture Holdings Inc."
+    },
+    {
+      "id": "11",
+      "name": "Global Manufacturing Corp."
+    },
+    {
+      "id": "12",
+      "name": "BioHealth Innovations Ltd."
+    },
+    {
+      "id": "13",
+      "name": "TechVenture Holdings Inc."
+    },
+    {
+      "id": "14",
+      "name": "Global Manufacturing Corp."
+    },
+    {
+      "id": "15",
+      "name": "BioHealth Innovations Ltd."
+    },
+    {
+      "id": "16",
+      "name": "TechVenture Holdings Inc."
+    },
+    {
+      "id": "17",
+      "name": "Global Manufacturing Corp."
+    },
+    {
+      "id": "18",
+      "name": "BioHealth Innovations Ltd."
+    },
+    {
+      "id": "30001",
+      "name": "Visium Technologies, Inc."
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\n4\tTechVenture Holdings Inc.\n5\tGlobal Manufacturing Corp.\n6\tBioHealth Innovations Ltd.\n7\tTechVenture Holdings Inc.\n8\tGlobal Manufacturing Corp.\n9\tBioHealth Innovations Ltd.\n10\tTechVenture Holdings Inc.\n11\tGlobal Manufacturing Corp.\n12\tBioHealth Innovations Ltd.\n13\tTechVenture Holdings Inc.\n14\tGlobal Manufacturing Corp.\n15\tBioHealth Innovations Ltd.\n16\tTechVenture Holdings Inc.\n17\tGlobal Manufacturing Corp.\n18\tBioHealth Innovations Ltd.\n30001\tVisium Technologies, Inc.\n",
+  "stderr": "",
+  "execution_time_ms": 58
+}
