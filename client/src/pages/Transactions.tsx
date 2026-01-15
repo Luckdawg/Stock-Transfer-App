@@ -59,6 +59,7 @@ import { trpc } from "@/lib/trpc";
 import { useSelectedCompany, CompanySelector } from "@/components/CompanySelector";
 import { NewTransactionDialog, TransactionViewDialog } from "@/components/dialogs";
 import { ExportButton } from "@/components/ExportButton";
+import { formatDate } from "@/lib/formatDate";
 
 export default function Transactions() {
   const [activeTab, setActiveTab] = useState<"transactions" | "corporate_actions" | "rule_144">("transactions");
@@ -391,7 +392,7 @@ export default function Transactions() {
                         <TableCell>{tx.fromShareholderName || '-'}</TableCell>
                         <TableCell>{tx.toShareholderName || '-'}</TableCell>
                         <TableCell>{tx.shares?.toLocaleString()}</TableCell>
-                        <TableCell>{tx.transactionDate || '-'}</TableCell>
+                        <TableCell>{formatDate(tx.transactionDate)}</TableCell>
                         <TableCell>{getStatusBadge(tx.status)}</TableCell>
                         <TableCell>
                           <div className="flex gap-1">
@@ -460,8 +461,8 @@ export default function Transactions() {
                       <TableRow key={action.id}>
                         <TableCell className="font-medium">{action.title}</TableCell>
                         <TableCell>{getTypeBadge(action.type)}</TableCell>
-                        <TableCell>{action.recordDate || '-'}</TableCell>
-                        <TableCell>{action.effectiveDate || '-'}</TableCell>
+                        <TableCell>{formatDate(action.recordDate)}</TableCell>
+                        <TableCell>{formatDate(action.effectiveDate)}</TableCell>
                         <TableCell>{getStatusBadge(action.status)}</TableCell>
                         <TableCell>
                           <div className="flex gap-2">

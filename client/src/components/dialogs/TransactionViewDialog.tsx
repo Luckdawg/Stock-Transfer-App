@@ -24,6 +24,7 @@ import {
   Hash
 } from "lucide-react";
 import { DocumentUpload } from "@/components/DocumentUpload";
+import { formatDate, formatDateTime } from "@/lib/formatDate";
 
 interface TransactionViewDialogProps {
   open: boolean;
@@ -166,7 +167,7 @@ export function TransactionViewDialog({
                 <div className="flex items-center gap-2 text-sm">
                   <Calendar className="w-4 h-4 text-slate-400" />
                   <span className="text-slate-500">Date:</span>
-                  <span className="font-medium">{transaction.transactionDate || 'N/A'}</span>
+                  <span className="font-medium">{formatDate(transaction.transactionDate, 'N/A')}</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   <Building2 className="w-4 h-4 text-slate-400" />
@@ -195,7 +196,7 @@ export function TransactionViewDialog({
                   <div className="flex items-center gap-2 text-sm">
                     <Calendar className="w-4 h-4 text-slate-400" />
                     <span className="text-slate-500">Settlement:</span>
-                    <span className="font-medium">{transaction.settlementDate}</span>
+                    <span className="font-medium">{formatDate(transaction.settlementDate)}</span>
                   </div>
                 )}
               </CardContent>
@@ -274,11 +275,11 @@ export function TransactionViewDialog({
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-slate-500">Created:</span>
-                  <span>{transaction.createdAt ? new Date(transaction.createdAt).toLocaleString() : 'N/A'}</span>
+                  <span>{formatDateTime(transaction.createdAt, 'N/A')}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-500">Last Updated:</span>
-                  <span>{transaction.updatedAt ? new Date(transaction.updatedAt).toLocaleString() : 'N/A'}</span>
+                  <span>{formatDateTime(transaction.updatedAt, 'N/A')}</span>
                 </div>
                 {transaction.approvedBy && (
                   <div className="flex justify-between">

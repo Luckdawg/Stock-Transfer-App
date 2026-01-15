@@ -67,6 +67,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { formatDate, formatDateTime } from "@/lib/formatDate";
 
 export default function Users() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -411,7 +412,7 @@ export default function Users() {
                           </TableCell>
                           <TableCell>{getSecurityBadge(user.securityLevel)}</TableCell>
                           <TableCell>
-                            {user.lastSignedIn ? new Date(user.lastSignedIn).toLocaleDateString() : '-'}
+                            {formatDate(user.lastSignedIn)}
                           </TableCell>
                           <TableCell>
                             <Button 
@@ -460,10 +461,10 @@ export default function Users() {
                           </TableCell>
                           <TableCell>{getInvitationStatusBadge(invitation.status, invitation.expiresAt)}</TableCell>
                           <TableCell>
-                            {new Date(invitation.expiresAt).toLocaleDateString()}
+                            {formatDate(invitation.expiresAt)}
                           </TableCell>
                           <TableCell>
-                            {new Date(invitation.createdAt).toLocaleDateString()}
+                            {formatDate(invitation.createdAt)}
                           </TableCell>
                           <TableCell>
                             <div className="flex gap-1">
@@ -798,7 +799,7 @@ export default function Users() {
                       <Calendar className="w-4 h-4 text-slate-400" />
                       <span className="text-slate-500">Last Sign In:</span>
                       <span className="font-medium">
-                        {selectedUser.lastSignedIn ? new Date(selectedUser.lastSignedIn).toLocaleString() : 'N/A'}
+                        {formatDateTime(selectedUser.lastSignedIn, 'N/A')}
                       </span>
                     </div>
                   </CardContent>
@@ -846,13 +847,13 @@ export default function Users() {
                     <div>
                       <span className="text-slate-500">Created:</span>
                       <span className="font-medium ml-2">
-                        {selectedUser.createdAt ? new Date(selectedUser.createdAt).toLocaleString() : 'N/A'}
+                        {formatDateTime(selectedUser.createdAt, 'N/A')}
                       </span>
                     </div>
                     <div>
                       <span className="text-slate-500">Updated:</span>
                       <span className="font-medium ml-2">
-                        {selectedUser.updatedAt ? new Date(selectedUser.updatedAt).toLocaleString() : 'N/A'}
+                        {formatDateTime(selectedUser.updatedAt, 'N/A')}
                       </span>
                     </div>
                     <div>
