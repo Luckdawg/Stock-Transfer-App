@@ -17,6 +17,8 @@ import { eq, and, desc } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { generateCertificateHTML, generate1099DivHTML, generateShareholderStatementHTML, getCertificateData, get1099DivData, getShareholderStatementData } from "./pdfGenerator";
 import { generateShareholdersCSV, generateTransactionsCSV, generateHoldingsCSV, generateCertificatesCSV, addBOM } from "./exportUtils";
+import { sendEmail } from "./_core/email";
+import { ENV } from "./_core/env";
 
 // Admin procedure middleware
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
@@ -1244,6 +1246,36 @@ export const appRouter = router({
           invitedBy: ctx.user.id,
           expiresAt,
         });
+        
+        // Send invitation email
+        const inviteLink = `${ENV.frontendUrl || 'https://stocktransf-a7h2xsej.manus.space'}/invite/${token}`;
+        const emailBody = `
+You've been invited to join the Stock Transfer Platform!
+
+Role: ${input.role}
+${input.message ? `\nMessage from ${ctx.user.name || 'the administrator'}:\n"${input.message}"\n` : ''}
+Click the link below to accept your invitation:
+
+${inviteLink}
+
+This invitation will expire on ${expiresAt.toLocaleDateString()}.
+
+If you have any questions, please contact the administrator.
+
+Best regards,
+Stock Transfer Platform Team
+        `.trim();
+        
+        try {
+          await sendEmail({
+            to: input.email,
+            subject: 'You\'re invited to join Stock Transfer Platform',
+            body: emailBody,
+          });
+        } catch (error) {
+          console.error('Failed to send invitation email:', error);
+          // Don't fail the invitation creation if email fails
+        }
         
         return { 
           id: result[0].insertId, 

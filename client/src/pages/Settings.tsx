@@ -60,11 +60,11 @@ export default function Settings() {
   // Create invitation mutation
   const createInvitation = trpc.invitation.create.useMutation({
     onSuccess: (data) => {
-      toast.success("Invitation sent successfully!");
-      // Copy link to clipboard
+      toast.success(`Invitation email sent to ${data.email}!`);
+      // Also copy link to clipboard as backup
       const inviteLink = `${window.location.origin}/invite/${data.token}`;
       navigator.clipboard.writeText(inviteLink);
-      toast.info("Invitation link copied to clipboard");
+      toast.info("Invitation link also copied to clipboard");
       
       setInviteDialogOpen(false);
       setInviteEmail("");

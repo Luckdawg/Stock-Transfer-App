@@ -1,0 +1,9 @@
+{
+  "query": "DELETE FROM invitations WHERE status = 'pending';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2KQuguC66uRWakj.ac35fed03bae --database a7H2XSEj8BHv8rdYEi8SPZ --execute DELETE FROM invitations WHERE status = 'pending';",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 54
+}
